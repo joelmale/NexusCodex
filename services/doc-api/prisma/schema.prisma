@@ -1,0 +1,72 @@
+// Prisma schema for Nexus VTT Document Library
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentType {
+  rulebook
+  campaign_note
+  handout
+  map
+  character_sheet
+  homebrew
+}
+
+enum DocumentFormat {
+  pdf
+  markdown
+  html
+}
+
+enum OcrStatus {
+  pending
+  processing
+  completed
+  failed
+  not_required
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @default("")
+  type        DocumentType
+  format      DocumentFormat
+
+  // Storage
+  storageKey    String
+  fileSize      Int
+  pageCount     Int      @default(0)
+  thumbnailKey  String?
+
+  // Metadata
+  author        String   @default("")
+  uploadedBy    String   // User ID from VTT
+  uploadedAt    DateTime @default(now())
+  lastModified  DateTime @updatedAt
+
+  // Organization
+  tags          String[]
+  collections   String[]
+  campaigns     String[]
+
+  // Search & Processing
+  searchIndex   String?  // ElasticSearch document ID
+  ocrStatus     OcrStatus @default(not_required)
+
+  // Access
+  isPublic      Boolean  @default(false)
+  metadata      Json     @default("{}")
+
+  @@index([uploadedBy])
+  @@index([type])
+  @@index([campaigns])
+  @@index([tags])
+  @@map("documents")
+}

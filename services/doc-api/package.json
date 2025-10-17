@@ -1,0 +1,33 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joelmale/NexusCodex.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/joelmale/NexusCodex/issues"
+  },
+  "homepage": "https://github.com/joelmale/NexusCodex#readme",
+  "devDependencies": {
+    "@types/node": "^24.8.1",
+    "prisma": "^6.17.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.17.1",
+    "aws-sdk": "^2.1692.0",
+    "fastify": "^5.6.1"
+  }
+}

@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Document {
+  id           String       @id @default(uuid())
+  title        String
+  description  String
+  type         DocumentType
+  format       DocumentFormat
+  storageKey   String
+  fileSize     Int
+  pageCount    Int
+  thumbnailKey String?
+  author       String
+  uploadedBy   String
+  uploadedAt   DateTime     @default(now())
+  lastModified DateTime     @updatedAt
+  tags         String[]
+  collections  String[]
+  campaigns    String[]
+  searchIndex  String?
+  ocrStatus    OcrStatus
+  isPublic     Boolean
+  metadata     Json
+}
+
+enum DocumentType {
+  rulebook
+  campaign_note
+  handout
+  map
+  character_sheet
+  homebrew
+}
+
+enum DocumentFormat {
+  pdf
+  markdown
+  html
+}
+
+enum OcrStatus {
+  pending
+  processing
+  completed
+  failed
+  not_required
+}

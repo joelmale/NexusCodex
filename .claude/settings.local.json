@@ -1,7 +1,23 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nImplement Phase 1: Basic PDF Viewer & CRUD\n\n- Add complete doc-api service with Node.js 20 + TypeScript + Fastify\n- Implement full Document model with Prisma ORM (PostgreSQL)\n- Create S3/MinIO integration with pre-signed URL support\n- Add all Phase 1 CRUD endpoints with Range header support\n- Set up Docker Compose with PostgreSQL, Redis, and MinIO\n- Add comprehensive filtering (type, campaign, tags, search)\n- Include production-ready Dockerfile with multi-stage build\n- Add detailed README with API documentation and examples\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(ln:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(while read file)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(done)",
+      "Bash(chmod:*)",
+      "Bash(docker compose:*)",
+      "Bash(npm install:*)",
+      "Bash(docker build:*)",
+      "Bash(export DOCKER_BUILDKIT=0)",
+      "Bash(./test-stack.sh:*)"
     ],
     "deny": [],
     "ask": []

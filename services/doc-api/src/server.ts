@@ -2,6 +2,11 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { env } from './config/env';
 import { documentRoutes } from './routes/documents';
+import { processingRoutes } from './routes/processing';
+import { searchRoutes } from './routes/search';
+import { referenceRoutes } from './routes/references';
+import { annotationRoutes } from './routes/annotations';
+import { structuredDataRoutes } from './routes/structured-data';
 import { s3Service } from './services/s3.service';
 import { prisma } from './services/database.service';
 
@@ -58,6 +63,11 @@ fastify.get('/health', async (request, reply) => {
 
 // Register routes
 fastify.register(documentRoutes);
+fastify.register(processingRoutes);
+fastify.register(searchRoutes);
+fastify.register(referenceRoutes);
+fastify.register(annotationRoutes);
+fastify.register(structuredDataRoutes);
 
 // Graceful shutdown
 const signals = ['SIGINT', 'SIGTERM'];

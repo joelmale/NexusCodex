@@ -5,7 +5,6 @@ dotenv.config();
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.string().default('3000').transform(Number),
 
   // Database
   DATABASE_URL: z.string(),
@@ -17,9 +16,6 @@ const envSchema = z.object({
   ELASTICSEARCH_URL: z.string(),
   ELASTICSEARCH_INDEX: z.string().default('documents'),
 
-  // Queue
-  QUEUE_NAME: z.string().default('document-processing'),
-
   // S3/MinIO
   S3_ENDPOINT: z.string(),
   S3_ACCESS_KEY: z.string(),
@@ -28,10 +24,11 @@ const envSchema = z.object({
   S3_REGION: z.string().default('us-east-1'),
   S3_FORCE_PATH_STYLE: z.string().default('true').transform(val => val === 'true'),
 
-  // API Configuration
-  UPLOAD_URL_EXPIRY: z.string().default('3600').transform(Number), // 1 hour
-  DOWNLOAD_URL_EXPIRY: z.string().default('3600').transform(Number), // 1 hour
-  MAX_FILE_SIZE: z.string().default('104857600').transform(Number), // 100MB
+  // Processing Configuration
+  QUEUE_NAME: z.string().default('document-processing'),
+  WORKER_CONCURRENCY: z.string().default('2').transform(Number),
+  THUMBNAIL_WIDTH: z.string().default('300').transform(Number),
+  THUMBNAIL_QUALITY: z.string().default('80').transform(Number),
 });
 
 export const env = envSchema.parse(process.env);

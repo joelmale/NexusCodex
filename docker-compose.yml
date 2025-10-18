@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   doc-api:
     build: ./services/doc-api
@@ -9,6 +7,7 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://user:pass@postgres:5432/doclib
       - REDIS_URL=redis://redis:6379
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
       - S3_ENDPOINT=http://minio:9000
       - S3_ACCESS_KEY=admin
       - S3_SECRET_KEY=password
@@ -23,6 +22,52 @@ services:
       redis:
         condition: service_started
       minio:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
+  doc-processor:
+    build: ./services/doc-processor
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://user:pass@postgres:5432/doclib
+      - REDIS_URL=redis://redis:6379
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=admin
+      - S3_SECRET_KEY=password
+      - S3_BUCKET=documents
+      - S3_REGION=us-east-1
+    volumes:
+      - ./services/doc-processor/src:/app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
+  doc-websocket:
+    build: ./services/doc-websocket
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DATABASE_URL=postgresql://user:pass@postgres:5432/doclib
+      - REDIS_URL=redis://redis:6379
+      - SESSION_TTL=3600
+    volumes:
+      - ./services/doc-websocket/src:/app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_started
     restart: unless-stopped
 
@@ -67,7 +112,24 @@ services:
       timeout: 20s
       retries: 3
 
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  elasticsearch_data:

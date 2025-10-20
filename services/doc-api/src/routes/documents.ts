@@ -41,7 +41,7 @@ export async function documentRoutes(fastify: FastifyInstance) {
             collections: data.collections,
             campaigns: data.campaigns,
             isPublic: data.isPublic,
-            metadata: data.metadata,
+            metadata: data.metadata as any,
           },
         });
 
@@ -210,7 +210,7 @@ export async function documentRoutes(fastify: FastifyInstance) {
 
         const document = await prisma.document.update({
           where: { id: request.params.id },
-          data,
+          data: data as any,
         });
 
         return reply.send(document);

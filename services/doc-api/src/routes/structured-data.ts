@@ -25,8 +25,8 @@ export async function structuredDataRoutes(fastify: FastifyInstance) {
         const structuredData = await prisma.structuredData.findMany({
           where: {
             documentId,
-            ...(type && { type }),
-            ...(name && { name: { contains: name, mode: 'insensitive' } }),
+            ...(type && { type: type as any }),
+            ...(name && { name: { contains: name, mode: 'insensitive' as any } }),
           },
           orderBy: [{ pageNumber: 'asc' }, { name: 'asc' }],
         });
@@ -102,9 +102,9 @@ export async function structuredDataRoutes(fastify: FastifyInstance) {
         const structuredData = await prisma.structuredData.findMany({
           where: {
             ...(documentId && { documentId }),
-            ...(type && { type }),
-            ...(name && { name: { contains: name, mode: 'insensitive' } }),
-            ...(search && { searchText: { contains: search, mode: 'insensitive' } }),
+            ...(type && { type: type as any }),
+            ...(name && { name: { contains: name, mode: 'insensitive' as any } }),
+            ...(search && { searchText: { contains: search, mode: 'insensitive' as any } }),
           },
           take: limit ? parseInt(limit) : 50,
           skip: offset ? parseInt(offset) : 0,

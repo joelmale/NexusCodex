@@ -163,8 +163,8 @@ class ElasticSearchService {
             },
           },
           sort: [
-            { _score: 'desc' },
-            { uploadedAt: 'desc' },
+            { _score: { order: 'desc' as const } },
+            { uploadedAt: { order: 'desc' as const } },
           ],
         },
       });

@@ -1,365 +1,439 @@
-# Nexus VTT - Document Library Microservice
+# NexusCodex - Document Library for Virtual Tabletops
 
-A comprehensive document management system for the Nexus Virtual Tabletop, providing document upload, storage, search, and real-time collaboration features.
+A production-ready microservices platform for managing, processing, and collaborating on TTRPG documents. Built for the Nexus Virtual Tabletop, NexusCodex provides intelligent document management with real-time collaboration, full-text search, OCR, and automated extraction of game content.
 
-## Current Status: Phase 5 Complete ✅
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20-green.svg)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-### Phase 1: Basic PDF Viewer & CRUD ✅
+---
 
-- **Document Upload**: Generate pre-signed S3 URLs for secure client-side uploads
-- **Document Management**: Full CRUD operations for document metadata
-- **Document Streaming**: HTTP Range request support for efficient PDF rendering
-- **Storage**: S3-compatible storage (MinIO for development, S3/R2 for production)
-- **Database**: PostgreSQL with Prisma ORM for type-safe queries
-- **Filtering**: Search by document type, campaign, tags, and text
+## Table of Contents
 
-### Phase 2: Processing, Search & Organization ✅
+- [Features](#features)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [API Documentation](#api-documentation)
+- [WebSocket Events](#websocket-events)
+- [Development](#development)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
+- [License](#license)
 
-- **Automatic Processing**: Background worker for PDF text extraction and thumbnail generation
-- **Full-Text Search**: ElasticSearch-powered search across document content
-- **Quick Search**: Fast lookup with highlighted snippets
-- **Bookmarks/References**: Create and manage document bookmarks with page numbers and notes
-- **Thumbnail Generation**: Automatic first-page thumbnails for all PDF documents
-- **Processing Queue**: BullMQ-based job queue with retry logic and error handling
+---
 
-### Phase 3: Real-time Collaboration ✅
+## Features
 
-- **WebSocket Server**: Real-time communication for document viewing sessions
-- **Session Management**: Create and join document viewing sessions with room codes
-- **Navigation Sync**: Synchronized page changes and scroll positions
-- **DM Push Features**: Force page navigation and push references to players
-- **Session Settings**: Configurable sync settings (scroll, page, highlight)
-- **Ephemeral Sessions**: Redis-backed session storage with automatic TTL expiration
-- **Connection Management**: Heartbeat monitoring and automatic cleanup
+### 📚 Document Management
+- **Multi-format Support**: PDF and Markdown documents
+- **S3-Compatible Storage**: MinIO for development, AWS S3/Cloudflare R2 for production
+- **Smart Upload**: Client-side uploads via pre-signed URLs (no server bottleneck)
+- **HTTP Range Support**: Efficient PDF streaming for browser-based viewers (PDF.js)
+- **Automatic Thumbnails**: First-page previews generated on upload
+- **Organizational Tools**: Tags, collections, and campaign-specific grouping
 
-### Phase 4: Annotations & Enhancements ✅
+### 🔍 Intelligent Search
+- **Full-Text Search**: ElasticSearch-powered search across all document content
+- **Quick Lookup**: Fast access to spells, monsters, items, and feats
+- **Structured Data**: Automatically extracted D&D 5e content with searchable fields
+- **Smart Filtering**: Filter by document type, campaign, tags, or content type
 
-- **Persistent Annotations**: Create highlights, notes, and drawings on documents
-- **Annotation Types**: Support for highlights, text notes, and freehand drawings
-- **Real-time Sync**: Live annotation updates across all session participants
-- **Shared Annotations**: Mark annotations as shared with campaign members
-- **Page-based Organization**: Annotations indexed by page number for fast retrieval
-- **Reference Linking**: Link annotations to bookmarks/references
-- **Color Coding**: Customizable colors for visual organization
-- **Complete CRUD**: Full create, read, update, delete operations via REST and WebSocket
+### 🎮 Real-Time Collaboration
+- **Synchronized Viewing**: DMs and players view documents together in real-time
+- **Page Navigation Sync**: Optional synchronized page changes and scrolling
+- **DM Push Controls**: Force page navigation or push bookmarks to players
+- **Session Management**: Room-based sessions with configurable sync settings
+- **Live Annotations**: Real-time highlights, notes, and drawings shared across participants
 
-### Phase 5: Advanced Processing ✅
+### 🤖 Automated Processing
+- **Text Extraction**: Automatic OCR for image-based PDFs using Tesseract.js
+- **Structured Parsing**: Extract spells, monsters, items, and feats from rulebooks
+- **Background Workers**: Non-blocking job queue (BullMQ) for heavy processing
+- **Smart Detection**: Automatically detects image-based vs. text-based PDFs
+- **Markdown Support**: Process and index Markdown campaign notes
 
-- **OCR Support**: Tesseract.js integration for image-based PDF text extraction
-- **Markdown Documents**: Full support for Markdown (.md) file upload and processing
-- **Structured Data Extraction**: Automatic extraction of D&D content (spells, monsters, items)
-- **Quick Search API**: Fast lookup for spells, items, and monsters with structured data
-- **Smart Detection**: Automatic detection of image-based PDFs for OCR processing
-- **Multi-format Processing**: Unified pipeline for PDF and Markdown documents
-- **Structured Database**: Dedicated table for searchable game content
-- **Pattern Matching**: Advanced regex-based extraction for D&D stat blocks
+### 📍 Bookmarks & Annotations
+- **Document References**: Save page numbers, sections, and text selections
+- **Persistent Annotations**: Highlights, text notes, and drawings
+- **Shared Content**: Mark bookmarks and annotations as visible to campaign members
+- **Color Coding**: Organize with customizable colors
+- **Linked References**: Connect annotations to bookmarks for context
 
-### Tech Stack
+---
 
-- **Runtime**: Node.js 20 + TypeScript
-- **Framework**: Fastify (REST API), Express + ws (WebSocket)
-- **Database**: PostgreSQL 16 with Prisma ORM
-- **Search**: ElasticSearch 8
-- **Queue**: BullMQ (Redis-backed)
-- **Storage**: MinIO (S3-compatible)
-- **Cache**: Redis 7 (+ session storage)
-- **Processing**: pdf-parse, pdfjs-dist, sharp, Tesseract.js (OCR), remark (Markdown)
-- **WebSocket**: ws library with heartbeat monitoring
-- **Container**: Docker & Docker Compose
+## Architecture
 
-## Getting Started
+NexusCodex is built as a distributed microservices architecture with three core services:
+
+```
+┌─────────────┐
+│   Client    │
+│  (VTT UI)   │
+└──────┬──────┘
+       │
+       ├──────────────┐
+       │              │
+       ▼              ▼
+┌─────────────┐  ┌──────────────┐
+│  doc-api    │  │doc-websocket │
+│   :3000     │  │    :3002     │
+│  (Fastify)  │  │  (Express)   │
+└──────┬──────┘  └──────┬───────┘
+       │                │
+       │         ┌──────┴────────┐
+       │         │               │
+       ▼         ▼               ▼
+┌─────────────┐ ┌─────┐   ┌──────────┐
+│doc-processor│ │Redis│   │PostgreSQL│
+│ (BullMQ)    │ └─────┘   └──────────┘
+└──────┬──────┘
+       │
+       ├──────────┬──────────┐
+       ▼          ▼          ▼
+  ┌───────┐ ┌─────────┐ ┌────────────┐
+  │ MinIO │ │  Elastic│ │ PostgreSQL │
+  │  (S3) │ │ Search  │ │            │
+  └───────┘ └─────────┘ └────────────┘
+```
+
+### Services
+
+**doc-api** (REST API)
+- Document CRUD operations
+- Search endpoints (full-text and quick search)
+- Reference/bookmark management
+- Annotation management
+- Structured data queries
+- Job queue producer (BullMQ)
+
+**doc-processor** (Background Worker)
+- PDF/Markdown text extraction
+- Thumbnail generation
+- OCR for image-based documents
+- D&D content extraction (spells, monsters, items)
+- ElasticSearch indexing
+- Job queue consumer (BullMQ)
+
+**doc-websocket** (Real-time Service)
+- WebSocket server for live collaboration
+- Session management (Redis-backed)
+- Event broadcasting (page sync, annotations)
+- Heartbeat monitoring
+- DM control features
+
+### Data Stores
+
+- **PostgreSQL**: Document metadata, references, annotations, structured data
+- **ElasticSearch**: Full-text search index (document content NOT in Postgres)
+- **Redis**: Job queue + WebSocket session storage
+- **MinIO/S3**: Document file storage
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- Node.js 20+ (for local development)
+- [Docker](https://www.docker.com/get-started) 20.10+
+- [Docker Compose](https://docs.docker.com/compose/) 2.0+
+- [Node.js](https://nodejs.org/) 20+ (for local development)
 
-### Quick Start
+### Start the Stack
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd NexusCodex
-   ```
+```bash
+# Clone the repository
+git clone https://github.com/your-org/NexusCodex.git
+cd NexusCodex
 
-2. **Start all services**
-   ```bash
-   docker-compose up --build
-   ```
+# Start all services
+docker compose up -d
 
-3. **Access the services**
-   - REST API: http://localhost:3000
-   - WebSocket: ws://localhost:3002/ws
-   - MinIO Console: http://localhost:9001 (admin/password)
-   - PostgreSQL: localhost:5432 (user/pass)
-   - ElasticSearch: http://localhost:9200
+# Wait ~60 seconds for all services to be healthy
+# Then verify the stack
+./test-stack.sh
+```
 
-### API Endpoints
+**Service URLs:**
+- REST API: http://localhost:3000
+- WebSocket: ws://localhost:3002/ws
+- MinIO Console: http://localhost:9001 (login: admin/password)
+- ElasticSearch: http://localhost:9200
 
-#### Document Management
+### Upload Your First Document
+
+```bash
+# Create a document record and get upload URL
+curl -X POST http://localhost:3000/api/documents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Players Handbook",
+    "description": "D&D 5E Core Rulebook",
+    "type": "rulebook",
+    "format": "pdf",
+    "uploadedBy": "user-123",
+    "fileSize": 15728640,
+    "fileName": "phb.pdf",
+    "tags": ["dnd5e", "core-rules"],
+    "campaigns": ["my-campaign"]
+  }' | jq .
+
+# Upload the PDF to the returned uploadUrl
+curl -X PUT "<uploadUrl>" \
+  -H "Content-Type: application/pdf" \
+  --data-binary "@your-document.pdf"
+
+# Trigger processing (text extraction, OCR, thumbnails)
+curl -X POST http://localhost:3000/api/documents/<document-id>/process
+```
+
+### Search for Content
+
+```bash
+# Full-text search
+curl "http://localhost:3000/api/search?query=fireball"
+
+# Quick lookup for spells
+curl "http://localhost:3000/api/search/quick?term=fireball&type=spell"
+
+# Search with filters
+curl "http://localhost:3000/api/search?query=combat&type=rulebook&campaigns=my-campaign"
+```
+
+---
+
+## API Documentation
+
+### Document Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/documents` | Create document and get signed upload URL |
-| `GET` | `/api/documents` | List documents with filtering |
+| `POST` | `/api/documents` | Create document record and get S3 upload URL |
+| `GET` | `/api/documents` | List documents with filtering (type, campaign, tags, search) |
 | `GET` | `/api/documents/:id` | Get document metadata |
-| `GET` | `/api/documents/:id/content` | Stream document (supports Range headers) |
+| `GET` | `/api/documents/:id/content` | Stream document file (supports Range headers) |
 | `PUT` | `/api/documents/:id` | Update document metadata |
-| `DELETE` | `/api/documents/:id` | Delete document |
+| `DELETE` | `/api/documents/:id` | Delete document and all associated data |
 
-#### Document Processing (Phase 2)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/documents/:id/process` | Trigger document processing (extract text, generate thumbnail) |
-| `GET` | `/api/documents/:id/processing-status` | Get processing status and results |
-
-#### Search (Phase 2)
+### Search Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/search?query=...` | Full-text search with filters (type, campaigns, tags) |
-| `GET` | `/api/search/quick?query=...` | Quick search with top results and snippets |
+| `GET` | `/api/search` | Full-text search with filters (query, type, campaigns, tags) |
+| `GET` | `/api/search/quick` | Quick search with structured results and snippets |
 
-#### References/Bookmarks (Phase 2)
+### Reference/Bookmark Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/references` | Create a bookmark/reference |
-| `GET` | `/api/references` | List references (filter by document, user, campaign) |
+| `GET` | `/api/references` | List references (filter by documentId, userId, campaignId) |
 | `GET` | `/api/references/:id` | Get specific reference |
-| `PUT` | `/api/references/:id` | Update reference |
+| `PUT` | `/api/references/:id` | Update reference (title, notes, tags) |
 | `DELETE` | `/api/references/:id` | Delete reference |
 
-#### Annotations (Phase 4)
+### Annotation Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/documents/:id/annotations` | Get all annotations for a document (filter by user, campaign, page, type) |
-| `POST` | `/api/documents/:id/annotations` | Create a new annotation |
-| `GET` | `/api/annotations` | List all annotations with filtering |
+| `POST` | `/api/documents/:id/annotations` | Create annotation (highlight, note, drawing) |
+| `GET` | `/api/documents/:id/annotations` | Get annotations (filter by pageNumber, type, isShared) |
 | `GET` | `/api/annotations/:id` | Get specific annotation |
-| `PUT` | `/api/annotations/:id` | Update annotation (content, color, position, isShared) |
+| `PUT` | `/api/annotations/:id` | Update annotation (content, color, position) |
 | `DELETE` | `/api/annotations/:id` | Delete annotation |
 
-#### Structured Data (Phase 5)
+### Structured Data Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/documents/:id/structured-data` | Get all structured data for a document (filter by type, name) |
+| `GET` | `/api/documents/:id/structured-data` | Get extracted game content (filter by type, name) |
 | `GET` | `/api/structured-data` | List all structured data with filtering |
 | `GET` | `/api/structured-data/:id` | Get specific structured data entry |
-| `GET` | `/api/search/quick?term=...&type=...` | Quick search for spells, items, monsters with structured results |
 | `DELETE` | `/api/structured-data/:id` | Delete structured data entry |
 
-#### Health Checks
+### Processing Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/` | Basic service info (doc-api) |
-| `GET` | `/health` | Health check with database status (doc-api) |
-| `GET` | `/health` | WebSocket service health check (doc-websocket) |
+| `POST` | `/api/documents/:id/process` | Trigger document processing (extraction, OCR, indexing) |
+| `GET` | `/api/documents/:id/processing-status` | Get processing status and results |
 
-### WebSocket Events
+### Health Check
 
-The WebSocket service (`ws://localhost:3002/ws`) supports real-time collaboration features.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Service health (doc-api and doc-websocket) |
 
-#### Session Management Events
+### Example Request/Response
 
-**Client → Server (Incoming)**
-
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `doc:session:create` | Create a new viewing session | `{ documentId, campaignId, roomCode, presenter, syncSettings? }` |
-| `doc:session:join` | Join an existing session | `{ sessionId, userId }` |
-| `doc:session:leave` | Leave a session | `{ sessionId }` |
-| `doc:session:update-settings` | Update session sync settings | `{ sessionId, syncSettings }` |
-
-**Server → Client (Outgoing)**
-
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `session:created` | Session created successfully | `{ session }` |
-| `session:joined` | User joined session | `{ session?, userId }` |
-| `session:left` | User left session | `{ userId }` |
-| `session:updated` | Session settings updated | `{ syncSettings }` |
-
-#### Navigation Sync Events
-
-**Client → Server**
-
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `doc:page:change` | Page navigation | `{ sessionId, page }` |
-| `doc:scroll:sync` | Scroll position update | `{ sessionId, position }` |
-
-**Server → Client**
-
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `page:changed` | Page changed (broadcast to viewers) | `{ page }` |
-| `scroll:synced` | Scroll position synced | `{ position }` |
-
-#### DM Push Events
-
-**Client → Server**
-
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `doc:push:page` | Force page navigation for all viewers | `{ sessionId, page }` |
-| `doc:push:reference` | Push a bookmark/reference to viewers | `{ sessionId, referenceId }` |
-
-**Server → Client**
-
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `page:pushed` | Page force-pushed by DM | `{ page }` |
-| `reference:pushed` | Reference pushed by DM | `{ referenceId }` |
-
-#### Annotation Real-time Events (Phase 4)
-
-**Client → Server**
-
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `doc:annotation:create` | Create annotation in real-time | `{ sessionId, annotation: {...} }` |
-| `doc:annotation:update` | Update annotation in real-time | `{ sessionId, annotationId, updates: {...} }` |
-| `doc:annotation:delete` | Delete annotation in real-time | `{ sessionId, annotationId }` |
-
-**Server → Client**
-
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `annotation:created` | Annotation created (broadcast) | `{ annotation }` |
-| `annotation:updated` | Annotation updated (broadcast) | `{ annotation }` |
-| `annotation:deleted` | Annotation deleted (broadcast) | `{ annotationId }` |
-
-#### Error Events
-
-**Server → Client**
-
-| Event Type | Description | Payload |
-|------------|-------------|---------|
-| `error` | Error occurred | `{ message, error? }` |
-
-### Example Usage
-
-#### Upload a Document
-
-1. **Create document record and get upload URL**
-   ```bash
-   curl -X POST http://localhost:3000/api/documents \
-     -H "Content-Type: application/json" \
-     -d '{
-       "title": "Player Handbook",
-       "description": "D&D 5E Player Handbook",
-       "type": "rulebook",
-       "format": "pdf",
-       "uploadedBy": "user-123",
-       "fileSize": 15728640,
-       "fileName": "phb.pdf",
-       "tags": ["dnd5e", "core-rules"],
-       "campaigns": ["campaign-abc"]
-     }'
-   ```
-
-2. **Upload file to the signed URL**
-   ```bash
-   curl -X PUT "<uploadUrl>" \
-     -H "Content-Type: application/pdf" \
-     --data-binary "@phb.pdf"
-   ```
-
-#### List Documents
-
+**Create Document:**
 ```bash
-# List all documents
-curl http://localhost:3000/api/documents
-
-# Filter by campaign
-curl http://localhost:3000/api/documents?campaign=campaign-abc
-
-# Filter by type
-curl http://localhost:3000/api/documents?type=rulebook
-
-# Search
-curl http://localhost:3000/api/documents?search=player
-```
-
-#### Stream a PDF
-
-```bash
-# Full document
-curl http://localhost:3000/api/documents/:id/content -o document.pdf
-
-# Range request (for PDF.js)
-curl http://localhost:3000/api/documents/:id/content \
-  -H "Range: bytes=0-1023"
-```
-
-#### Process a Document (Phase 2)
-
-```bash
-# Trigger processing (text extraction + thumbnail generation)
-curl -X POST http://localhost:3000/api/documents/:id/process
-
-# Check processing status
-curl http://localhost:3000/api/documents/:id/processing-status
-```
-
-#### Search Documents (Phase 2)
-
-```bash
-# Full-text search
-curl "http://localhost:3000/api/search?query=fireball&type=rulebook"
-
-# Quick search with snippets
-curl "http://localhost:3000/api/search/quick?query=spell&size=5"
-
-# Search with filters
-curl "http://localhost:3000/api/search?query=combat&campaigns=campaign-abc&tags=dnd5e"
-```
-
-#### Create and Manage Bookmarks (Phase 2)
-
-```bash
-# Create a bookmark
-curl -X POST http://localhost:3000/api/references \
+curl -X POST http://localhost:3000/api/documents \
   -H "Content-Type: application/json" \
   -d '{
-    "documentId": "doc-uuid",
-    "userId": "user-123",
-    "title": "Important Spell",
-    "pageNumber": 241,
-    "notes": "Fireball spell description",
-    "tags": ["spell", "combat"],
-    "isShared": true
+    "title": "Monster Manual",
+    "description": "D&D 5E Creature Reference",
+    "type": "rulebook",
+    "format": "pdf",
+    "uploadedBy": "dm-456",
+    "fileSize": 52428800,
+    "fileName": "mm.pdf",
+    "tags": ["dnd5e", "monsters"],
+    "campaigns": []
   }'
-
-# List bookmarks for a document
-curl "http://localhost:3000/api/references?documentId=doc-uuid"
-
-# List bookmarks for a user
-curl "http://localhost:3000/api/references?userId=user-123"
 ```
 
-#### Real-time Collaboration (Phase 3)
+**Response:**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Monster Manual",
+  "description": "D&D 5E Creature Reference",
+  "type": "rulebook",
+  "format": "pdf",
+  "uploadUrl": "http://localhost:9000/documents/550e8400-e29b-41d4-a716-446655440000.pdf?X-Amz-Algorithm=...",
+  "uploadedBy": "dm-456",
+  "uploadedAt": "2025-10-19T12:00:00.000Z",
+  "tags": ["dnd5e", "monsters"],
+  "campaigns": [],
+  "ocrStatus": "pending"
+}
+```
 
-**JavaScript/TypeScript WebSocket Client Example:**
+**Quick Search (Spell):**
+```bash
+curl "http://localhost:3000/api/search/quick?term=fireball&type=spell"
+```
+
+**Response:**
+```json
+{
+  "query": "fireball",
+  "total": 1,
+  "results": [
+    {
+      "id": "struct-123",
+      "name": "Fireball",
+      "type": "spell",
+      "document": {
+        "id": "doc-456",
+        "title": "Player's Handbook"
+      },
+      "pageNumber": 241,
+      "quickView": {
+        "name": "Fireball",
+        "level": "3",
+        "school": "evocation",
+        "castingTime": "1 action",
+        "range": "150 feet",
+        "components": "V, S, M",
+        "duration": "Instantaneous",
+        "description": "A bright streak flashes from your pointing finger..."
+      }
+    }
+  ]
+}
+```
+
+---
+
+## WebSocket Events
+
+Connect to `ws://localhost:3002/ws` for real-time collaboration features.
+
+### Event Format
+
+All events follow this structure:
+```json
+{
+  "type": "event:name",
+  "data": { ... }
+}
+```
+
+### Session Management
+
+**Client → Server:**
+
+| Event | Description | Payload |
+|-------|-------------|---------|
+| `doc:session:create` | Create viewing session | `{ documentId, campaignId, roomCode, presenter, syncSettings? }` |
+| `doc:session:join` | Join existing session | `{ sessionId, userId }` |
+| `doc:session:leave` | Leave session | `{ sessionId }` |
+| `doc:session:update-settings` | Update sync settings | `{ sessionId, syncSettings }` |
+
+**Server → Client:**
+
+| Event | Description | Payload |
+|-------|-------------|---------|
+| `session:created` | Session created | `{ session }` |
+| `session:joined` | User joined | `{ session?, userId }` |
+| `session:left` | User left | `{ userId }` |
+| `session:updated` | Settings updated | `{ syncSettings }` |
+
+### Navigation Sync
+
+**Client → Server:**
+
+| Event | Description | Payload |
+|-------|-------------|---------|
+| `doc:page:change` | Navigate to page | `{ sessionId, page }` |
+| `doc:scroll:sync` | Sync scroll position | `{ sessionId, position }` |
+
+**Server → Client:**
+
+| Event | Description | Payload |
+|-------|-------------|---------|
+| `page:changed` | Page changed (broadcast) | `{ page }` |
+| `scroll:synced` | Scroll synced (broadcast) | `{ position }` |
+
+### DM Controls
+
+**Client → Server:**
+
+| Event | Description | Payload |
+|-------|-------------|---------|
+| `doc:push:page` | Force page for all viewers | `{ sessionId, page }` |
+| `doc:push:reference` | Push bookmark to viewers | `{ sessionId, referenceId }` |
+
+**Server → Client:**
+
+| Event | Description | Payload |
+|-------|-------------|---------|
+| `page:pushed` | Page force-pushed | `{ page }` |
+| `reference:pushed` | Reference pushed | `{ referenceId }` |
+
+### Real-time Annotations
+
+**Client → Server:**
+
+| Event | Description | Payload |
+|-------|-------------|---------|
+| `doc:annotation:create` | Create annotation | `{ sessionId, annotation }` |
+| `doc:annotation:update` | Update annotation | `{ sessionId, annotationId, updates }` |
+| `doc:annotation:delete` | Delete annotation | `{ sessionId, annotationId }` |
+
+**Server → Client:**
+
+| Event | Description | Payload |
+|-------|-------------|---------|
+| `annotation:created` | Annotation created | `{ annotation }` |
+| `annotation:updated` | Annotation updated | `{ annotation }` |
+| `annotation:deleted` | Annotation deleted | `{ annotationId }` |
+
+### Example WebSocket Client
 
 ```typescript
-// Connect to WebSocket server
 const ws = new WebSocket('ws://localhost:3002/ws');
 
 ws.onopen = () => {
-  console.log('Connected to WebSocket server');
-
-  // Create a new viewing session (as DM/presenter)
+  // Create session as DM
   ws.send(JSON.stringify({
     type: 'doc:session:create',
     data: {
-      documentId: 'doc-uuid',
-      campaignId: 'campaign-123',
+      documentId: 'doc-123',
+      campaignId: 'campaign-456',
       roomCode: 'GAME42',
       presenter: 'dm-user-id',
       syncSettings: {
@@ -376,288 +450,100 @@ ws.onmessage = (event) => {
 
   switch (message.type) {
     case 'session:created':
-      console.log('Session created:', message.data.session);
-      // Store sessionId for future events
-      const sessionId = message.data.session.sessionId;
-      break;
-
-    case 'session:joined':
-      console.log('User joined:', message.data.userId);
+      console.log('Session ID:', message.data.session.sessionId);
       break;
 
     case 'page:changed':
       console.log('Navigate to page:', message.data.page);
-      // Update UI to show new page
       break;
 
-    case 'page:pushed':
-      console.log('DM pushed page:', message.data.page);
-      // Force navigation to this page
-      break;
-
-    case 'error':
-      console.error('Error:', message.data.message);
+    case 'annotation:created':
+      console.log('New annotation:', message.data.annotation);
       break;
   }
 };
 
-// Join an existing session (as player)
+// Join session as player
 ws.send(JSON.stringify({
   type: 'doc:session:join',
   data: {
-    sessionId: 'session-uuid',
+    sessionId: 'session-789',
     userId: 'player-user-id'
   }
 }));
 
-// Send page change (synced to other viewers if enabled)
-ws.send(JSON.stringify({
-  type: 'doc:page:change',
-  data: {
-    sessionId: 'session-uuid',
-    page: 42
-  }
-}));
-
-// DM push page to all viewers (forced navigation)
+// DM pushes page to all players
 ws.send(JSON.stringify({
   type: 'doc:push:page',
   data: {
-    sessionId: 'session-uuid',
-    page: 15
-  }
-}));
-
-// Push a reference/bookmark to all viewers
-ws.send(JSON.stringify({
-  type: 'doc:push:reference',
-  data: {
-    sessionId: 'session-uuid',
-    referenceId: 'ref-uuid'
+    sessionId: 'session-789',
+    page: 42
   }
 }));
 ```
 
-#### Annotations (Phase 4)
-
-```bash
-# Create an annotation
-curl -X POST http://localhost:3000/api/documents/doc-uuid/annotations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "userId": "user-123",
-    "campaignId": "campaign-abc",
-    "pageNumber": 42,
-    "position": {
-      "x": 100,
-      "y": 200,
-      "width": 150,
-      "height": 20
-    },
-    "type": "highlight",
-    "content": "Important spell description",
-    "color": "#FFFF00",
-    "isShared": true
-  }'
-
-# Get all annotations for a document
-curl "http://localhost:3000/api/documents/doc-uuid/annotations"
-
-# Get annotations for a specific page
-curl "http://localhost:3000/api/documents/doc-uuid/annotations?pageNumber=42"
-
-# Get only shared annotations
-curl "http://localhost:3000/api/documents/doc-uuid/annotations?isShared=true"
-
-# Update an annotation
-curl -X PUT http://localhost:3000/api/annotations/annotation-uuid \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content": "Updated note text",
-    "color": "#FF00FF"
-  }'
-
-# Delete an annotation
-curl -X DELETE http://localhost:3000/api/annotations/annotation-uuid
-```
-
-**Real-time Annotation Sync (WebSocket):**
-
-```typescript
-// Add to the WebSocket message handler
-ws.onmessage = (event) => {
-  const message = JSON.parse(event.data);
-
-  switch (message.type) {
-    case 'annotation:created':
-      console.log('Annotation created:', message.data.annotation);
-      // Add annotation to the UI
-      break;
-
-    case 'annotation:updated':
-      console.log('Annotation updated:', message.data.annotation);
-      // Update annotation in the UI
-      break;
-
-    case 'annotation:deleted':
-      console.log('Annotation deleted:', message.data.annotationId);
-      // Remove annotation from the UI
-      break;
-  }
-};
-
-// Create annotation in real-time (broadcasts to all session participants)
-ws.send(JSON.stringify({
-  type: 'doc:annotation:create',
-  data: {
-    sessionId: 'session-uuid',
-    annotation: {
-      documentId: 'doc-uuid',
-      userId: 'user-123',
-      pageNumber: 42,
-      position: { x: 100, y: 200, width: 150, height: 20 },
-      type: 'highlight',
-      content: 'Important text',
-      color: '#FFFF00',
-      isShared: true
-    }
-  }
-}));
-
-// Update annotation in real-time
-ws.send(JSON.stringify({
-  type: 'doc:annotation:update',
-  data: {
-    sessionId: 'session-uuid',
-    annotationId: 'annotation-uuid',
-    updates: {
-      content: 'Updated text',
-      color: '#FF00FF'
-    }
-  }
-}));
-
-// Delete annotation in real-time
-ws.send(JSON.stringify({
-  type: 'doc:annotation:delete',
-  data: {
-    sessionId: 'session-uuid',
-    annotationId: 'annotation-uuid'
-  }
-}));
-```
-
-#### Structured Data & Quick Search (Phase 5)
-
-```bash
-# Quick search for a spell
-curl "http://localhost:3000/api/search/quick?term=fireball&type=spell"
-
-# Response:
-# {
-#   "query": "fireball",
-#   "total": 1,
-#   "results": [{
-#     "id": "struct-uuid",
-#     "name": "Fireball",
-#     "type": "spell",
-#     "document": { "id": "doc-uuid", "title": "Player's Handbook" },
-#     "pageNumber": 241,
-#     "quickView": {
-#       "name": "Fireball",
-#       "level": "3",
-#       "school": "evocation",
-#       "castingTime": "1 action",
-#       "range": "150 feet",
-#       "components": "V, S, M",
-#       "duration": "Instantaneous",
-#       "description": "A bright streak flashes..."
-#     }
-#   }]
-# }
-
-# Search for monsters
-curl "http://localhost:3000/api/search/quick?term=dragon&type=monster&limit=3"
-
-# Search for magic items
-curl "http://localhost:3000/api/search/quick?term=sword&type=item"
-
-# Get all structured data from a document
-curl "http://localhost:3000/api/documents/doc-uuid/structured-data"
-
-# Filter by type
-curl "http://localhost:3000/api/documents/doc-uuid/structured-data?type=spell"
-
-# Search across all structured data
-curl "http://localhost:3000/api/structured-data?search=fire&type=spell"
-```
-
-**Upload Markdown Document:**
-
-```bash
-# Create markdown document
-curl -X POST http://localhost:3000/api/documents \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Campaign Notes",
-    "description": "Session notes and NPC details",
-    "type": "campaign_note",
-    "format": "markdown",
-    "uploadedBy": "dm-123",
-    "fileSize": 5120,
-    "fileName": "session-1.md",
-    "campaigns": ["campaign-abc"]
-  }'
-
-# Upload the markdown file to the signed URL
-curl -X PUT "<uploadUrl>" \
-  -H "Content-Type": text/markdown" \
-  --data-binary "@session-1.md"
-
-# Trigger processing (extracts text, headings, structured data)
-curl -X POST http://localhost:3000/api/documents/:id/process
-```
+---
 
 ## Development
 
-### Local Development Setup
+### Local Setup
 
-1. **Install dependencies**
-   ```bash
-   cd services/doc-api
-   npm install
-   ```
+```bash
+# Install dependencies for each service
+cd services/doc-api && npm install && cd ../..
+cd services/doc-processor && npm install && cd ../..
+cd services/doc-websocket && npm install && cd ../..
 
-2. **Generate Prisma client**
-   ```bash
-   npm run prisma:generate
-   ```
+# Generate Prisma client
+cd services/doc-api && npm run prisma:generate && cd ../..
+cd services/doc-processor && npm run prisma:generate && cd ../..
+cd services/doc-websocket && npm run prisma:generate && cd ../..
 
-3. **Run in development mode**
-   ```bash
-   npm run dev
-   ```
+# Start infrastructure (without application services)
+docker compose up -d postgres redis elasticsearch minio
+
+# Run services in development mode (hot reload)
+cd services/doc-api && npm run dev &
+cd services/doc-processor && npm run dev &
+cd services/doc-websocket && npm run dev &
+```
 
 ### Database Management
 
 ```bash
-# Generate Prisma client
+cd services/doc-api
+
+# Generate Prisma client after schema changes
 npm run prisma:generate
 
-# Push schema changes to database
+# Push schema changes to database (no migrations)
 npm run prisma:push
 
-# Open Prisma Studio
+# Open Prisma Studio (database GUI)
 npm run prisma:studio
 
-# Create migration
+# Create migration (for production)
 npm run prisma:migrate
+```
+
+### Building Services
+
+```bash
+# Build TypeScript
+cd services/doc-api && npm run build
+
+# Build Docker images
+docker compose build
+
+# Build specific service
+docker compose build doc-api
 ```
 
 ### Environment Variables
 
-**doc-api service** (`.env` file in `services/doc-api/`):
+Each service requires a `.env` file. See examples below:
 
+**services/doc-api/.env:**
 ```env
 NODE_ENV=development
 PORT=3000
@@ -677,8 +563,7 @@ DOWNLOAD_URL_EXPIRY=3600
 MAX_FILE_SIZE=104857600
 ```
 
-**doc-processor service** (`.env` file in `services/doc-processor/`):
-
+**services/doc-processor/.env:**
 ```env
 NODE_ENV=development
 DATABASE_URL=postgresql://user:pass@localhost:5432/doclib
@@ -694,8 +579,7 @@ S3_REGION=us-east-1
 S3_FORCE_PATH_STYLE=true
 ```
 
-**doc-websocket service** (`.env` file in `services/doc-websocket/`):
-
+**services/doc-websocket/.env:**
 ```env
 NODE_ENV=development
 PORT=3002
@@ -704,183 +588,243 @@ REDIS_URL=redis://localhost:6379
 SESSION_TTL=3600
 ```
 
+---
+
+## Testing
+
+### Quick Smoke Test
+
+```bash
+# Start all services and verify health
+./test-stack.sh
+```
+
+### Unit Tests
+
+```bash
+# Run all unit tests
+cd services/doc-api && npm test
+cd services/doc-processor && npm test
+cd services/doc-websocket && npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run with coverage
+npm run test:coverage
+```
+
+### Integration Tests
+
+```bash
+# Run integration tests (requires docker-compose.test.yml)
+cd services/doc-api && npm run test:integration
+```
+
+### Full Test Suite
+
+```bash
+# Run all tests across all services
+./run-tests.sh all
+
+# Run only unit tests
+./run-tests.sh unit
+
+# Run only integration tests
+./run-tests.sh integration
+```
+
+### Manual Testing
+
+See [TESTING.md](TESTING.md) for comprehensive manual testing guides including:
+- Document upload/download workflows
+- Search functionality testing
+- WebSocket connection testing
+- Performance testing strategies
+
+---
+
+## Deployment
+
+### Production Considerations
+
+**Security:**
+- Set `xpack.security.enabled=true` in ElasticSearch (currently disabled for dev)
+- Use strong database credentials (not `user:pass`)
+- Enable S3/CloudFlare R2 authentication
+- Implement WebSocket authentication via shared secret
+- Use HTTPS/WSS in production
+
+**Environment:**
+- Set `NODE_ENV=production`
+- Use production-grade PostgreSQL (AWS RDS, etc.)
+- Use managed Redis (AWS ElastiCache, etc.)
+- Use managed ElasticSearch (AWS OpenSearch, Elastic Cloud)
+- Use AWS S3 or Cloudflare R2 instead of MinIO
+
+**Scaling:**
+- Run multiple `doc-api` instances behind a load balancer
+- Run multiple `doc-processor` workers for parallel processing
+- Use Redis Cluster for high availability
+- Configure ElasticSearch cluster with replicas
+
+**Monitoring:**
+- Add application logging (Pino, Winston)
+- Set up health check monitoring
+- Monitor BullMQ queue depth and job failures
+- Track ElasticSearch query performance
+- Monitor S3 upload/download metrics
+
+### Docker Deployment
+
+```bash
+# Build production images
+docker compose -f docker-compose.prod.yml build
+
+# Start production stack
+docker compose -f docker-compose.prod.yml up -d
+
+# View logs
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+---
+
 ## Project Structure
 
 ```
 NexusCodex/
 ├── services/
-│   ├── doc-api/                # Document API service (Phase 1 & 2)
+│   ├── doc-api/                    # REST API service
 │   │   ├── src/
-│   │   │   ├── config/         # Environment configuration
-│   │   │   │   └── env.ts      # Zod-validated env vars
-│   │   │   ├── routes/         # API endpoints
-│   │   │   │   ├── documents.ts    # Document CRUD
-│   │   │   │   ├── processing.ts   # Processing triggers
-│   │   │   │   ├── search.ts       # Search endpoints
-│   │   │   │   ├── references.ts   # Bookmarks/references
-│   │   │   │   ├── annotations.ts  # Annotation CRUD
-│   │   │   │   └── structured-data.ts  # Structured data & quick search
-│   │   │   ├── services/       # Business logic
-│   │   │   │   ├── s3.service.ts
-│   │   │   │   ├── database.service.ts
-│   │   │   │   ├── queue.service.ts       # BullMQ producer
-│   │   │   │   └── elastic.service.ts     # ElasticSearch client
-│   │   │   ├── types/          # TypeScript types & schemas
-│   │   │   │   ├── document.ts
-│   │   │   │   ├── reference.ts
-│   │   │   │   ├── annotation.ts
-│   │   │   │   ├── structured-data.ts
-│   │   │   │   └── search.ts
-│   │   │   └── server.ts       # Fastify app entry point
+│   │   │   ├── config/             # Environment configuration
+│   │   │   ├── routes/             # API endpoints
+│   │   │   ├── services/           # Business logic (S3, DB, Queue, ElasticSearch)
+│   │   │   ├── types/              # TypeScript types and Zod schemas
+│   │   │   └── server.ts           # Fastify application
 │   │   ├── prisma/
-│   │   │   └── schema.prisma   # Full database schema (Document + ... + StructuredData)
+│   │   │   └── schema.prisma       # Database schema
 │   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   ├── doc-processor/          # Document processing worker (Phase 2)
+│   │   └── package.json
+│   │
+│   ├── doc-processor/              # Background processing worker
 │   │   ├── src/
-│   │   │   ├── config/
-│   │   │   │   └── env.ts
-│   │   │   ├── services/
-│   │   │   │   ├── queue.service.ts      # BullMQ consumer
-│   │   │   │   ├── pdf.service.ts        # Text extraction
-│   │   │   │   ├── thumbnail.service.ts  # Thumbnail generation
-│   │   │   │   ├── elastic.service.ts    # ElasticSearch indexing
-│   │   │   │   ├── ocr.service.ts        # OCR with Tesseract.js
-│   │   │   │   ├── markdown.service.ts   # Markdown processing
-│   │   │   │   ├── extraction.service.ts # Structured data extraction
-│   │   │   │   ├── s3.service.ts         # S3 operations
-│   │   │   │   └── database.service.ts   # Prisma client
-│   │   │   ├── workers/
-│   │   │   │   └── process-document.worker.ts  # Main processing logic
-│   │   │   └── index.ts          # Worker entry point
+│   │   │   ├── config/             # Environment configuration
+│   │   │   ├── services/           # Processing services (PDF, OCR, extraction, etc.)
+│   │   │   ├── workers/            # BullMQ job handlers
+│   │   │   └── index.ts            # Worker entry point
 │   │   ├── prisma/
-│   │   │   └── schema.prisma     # Symlink to shared schema
+│   │   │   └── schema.prisma       # Symlink to doc-api schema
 │   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   └── doc-websocket/          # WebSocket service (Phase 3)
+│   │   └── package.json
+│   │
+│   └── doc-websocket/              # WebSocket real-time service
 │       ├── src/
-│       │   ├── config/
-│       │   │   └── env.ts          # Environment configuration
+│       │   ├── config/             # Environment configuration
 │       │   ├── handlers/           # WebSocket event handlers
-│       │   │   ├── session.handler.ts      # Session management
-│       │   │   ├── navigation.handler.ts   # Page/scroll sync
-│       │   │   ├── push.handler.ts         # DM push features
-│       │   │   └── annotation.handler.ts   # Real-time annotations
-│       │   ├── services/
-│       │   │   ├── redis.service.ts        # Session storage
-│       │   │   ├── session.service.ts      # Session CRUD
-│       │   │   └── database.service.ts     # Prisma client
-│       │   ├── types/
-│       │   │   ├── events.ts       # WebSocket event types & schemas
-│       │   │   └── session.ts      # Session types
-│       │   ├── websocket/
-│       │   │   └── server.ts       # WebSocket server setup
-│       │   └── index.ts            # Express + WS entry point
+│       │   ├── services/           # Session management, Redis
+│       │   ├── types/              # Event schemas
+│       │   ├── websocket/          # WebSocket server
+│       │   └── index.ts            # Express + WebSocket entry
 │       ├── Dockerfile
-│       ├── package.json
-│       └── tsconfig.json
-├── docker-compose.yml
-└── README.md
+│       └── package.json
+│
+├── docker-compose.yml              # Development stack
+├── docker-compose.test.yml         # Testing stack
+├── test-stack.sh                   # Health check script
+├── run-tests.sh                    # Test runner
+├── README.md                       # This file
+├── CLAUDE.md                       # Development guide for Claude Code
+├── TESTING.md                      # Comprehensive testing guide
+└── LICENSE
 ```
 
-## Data Models
+---
 
-### Document Model
+## Tech Stack
 
-The full document model includes:
+**Backend:**
+- Node.js 20 + TypeScript 5.3
+- Fastify 4 (REST API)
+- Express + ws (WebSocket)
+- Prisma ORM (PostgreSQL)
 
-- **Core Fields**: id, title, description, type, format
-- **Storage**: storageKey, fileSize, pageCount, thumbnailKey
-- **Metadata**: author, uploadedBy, uploadedAt, lastModified
-- **Organization**: tags[], collections[], campaigns[]
-- **Search**: searchIndex (ElasticSearch ID), ocrStatus
-- **Access**: isPublic, metadata (flexible JSON)
+**Processing:**
+- BullMQ (Redis-backed job queue)
+- pdf-parse (text extraction)
+- Tesseract.js (OCR)
+- sharp + pdfjs-dist (thumbnails)
+- remark + unified (Markdown)
 
-#### Document Types
+**Storage:**
+- PostgreSQL 16 (metadata)
+- ElasticSearch 8 (full-text search)
+- Redis 7 (queue + sessions)
+- MinIO / S3 / R2 (file storage)
 
-- `rulebook` - Game rule books
-- `campaign_note` - Campaign notes and documents
-- `handout` - Player handouts
-- `map` - Battle maps and world maps
-- `character_sheet` - Character sheets
-- `homebrew` - Custom homebrew content
+**DevOps:**
+- Docker + Docker Compose
+- Jest (testing)
+- tsx (development hot reload)
 
-### DocumentReference Model (Phase 2)
+---
 
-The bookmark/reference model includes:
+## Contributing
 
-- **Identification**: id, documentId, userId, campaignId
-- **Location**: pageNumber, section, textSelection (with start/end/text)
-- **Metadata**: title, notes, tags[], color
-- **Sharing**: isShared (visible to campaign members)
-- **Timestamps**: createdAt, lastAccessed
+Contributions are welcome! Please follow these guidelines:
 
-### DocumentAnnotation Model (Phase 4)
+1. **Fork the repository** and create a feature branch
+2. **Write tests** for new features or bug fixes
+3. **Run the test suite** and ensure all tests pass
+4. **Follow TypeScript best practices** and use Zod for validation
+5. **Update documentation** (README, CLAUDE.md, TESTING.md)
+6. **Submit a pull request** with a clear description
 
-The annotation model includes:
+### Development Workflow
 
-- **Identification**: id, documentId, referenceId (optional), userId, campaignId
-- **Location**: pageNumber, position (x, y, width, height coordinates)
-- **Type**: 'highlight', 'note', or 'drawing'
-- **Content**: Note text or drawing data (SVG path, etc.)
-- **Visual**: color (hex code for highlighting/markers)
-- **Sharing**: isShared (visible to campaign members)
-- **Timestamps**: createdAt, modifiedAt
+```bash
+# Create feature branch
+git checkout -b feature/my-feature
 
-#### Annotation Types
+# Make changes and test
+npm test
 
-- `highlight` - Text highlights with color coding
-- `note` - Text notes attached to specific locations
-- `drawing` - Freehand drawings and shapes
+# Commit changes
+git add .
+git commit -m "Add new feature: description"
 
-### StructuredData Model (Phase 5)
-
-The structured game content model includes:
-
-- **Identification**: id, documentId, type (spell/monster/item/feat/class_feature/other)
-- **Location**: pageNumber, section (for location within document)
-- **Content**: name, data (JSON object with type-specific fields), searchText
-- **Search**: searchIndex (ElasticSearch ID for advanced queries)
-- **Timestamps**: createdAt, updatedAt
-
-#### Structured Data Types
-
-- `spell` - D&D spells with level, school, components, etc.
-- `monster` - Creatures with stat blocks (AC, HP, CR, etc.)
-- `item` - Magic items and equipment with rarity, attunement
-- `feat` - Character feats and abilities
-- `class_feature` - Class-specific features
-- `other` - Other structured content
-
-#### Example Spell Data Structure
-
-```json
-{
-  "name": "Fireball",
-  "level": "3",
-  "school": "evocation",
-  "castingTime": "1 action",
-  "range": "150 feet",
-  "components": "V, S, M",
-  "duration": "Instantaneous",
-  "description": "A bright streak flashes from your pointing finger..."
-}
+# Push and create PR
+git push origin feature/my-feature
 ```
 
-## Next Phases
-
-All planned phases complete! Future enhancements could include:
-- Advanced OCR for complex layouts
-- AI-powered content extraction
-- Enhanced structured data for more game systems
-- Real-time collaborative document editing
+---
 
 ## License
 
-MIT License - see LICENSE file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
 
 ## Support
 
-For issues and questions, please open an issue on GitHub.
+For issues, questions, or feature requests:
+- **GitHub Issues**: [Open an issue](https://github.com/your-org/NexusCodex/issues)
+- **Documentation**: See [CLAUDE.md](CLAUDE.md) for architecture details
+- **Testing Guide**: See [TESTING.md](TESTING.md) for testing strategies
+
+---
+
+## Acknowledgments
+
+Built with ❤️ for the Nexus VTT community.
+
+Special thanks to:
+- The D&D community for inspiration
+- Open source maintainers of our dependencies
+- Contributors and testers
+
+---
+
+**Status**: Production Ready ✅
+
+All planned phases (1-5) are complete. The system is ready for integration with VTT frontends.

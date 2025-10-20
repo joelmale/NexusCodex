@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../services/database.service';
-import { enqueueDocumentProcessing, getJobStatus } from '../services/queue.service';
+import { enqueueDocumentProcessing } from '../services/queue.service';
 
 export async function processingRoutes(fastify: FastifyInstance) {
   /**

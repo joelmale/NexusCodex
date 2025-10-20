@@ -29,7 +29,7 @@ export class DocumentWebSocketServer {
    * Set up WebSocket connection handler
    */
   private setupConnectionHandler(): void {
-    this.wss.on('connection', (ws: ExtendedWebSocket, request: IncomingMessage) => {
+    this.wss.on('connection', (ws: ExtendedWebSocket, _request: IncomingMessage) => {
       console.log('New WebSocket connection established');
 
       ws.isAlive = true;

@@ -94,8 +94,8 @@ Challenge: 13 (10,000 XP)
 
       expect(monsters).toHaveLength(1);
       expect(monsters[0].name).toBe('Dragon');
-      expect(monsters[0].armorClass).toContain('18');
-      expect(monsters[0].hitPoints).toContain('200');
+      expect(monsters[0].ac).toContain('18');
+      expect(monsters[0].hp).toContain('200');
     });
 
     it('should return empty array when no monsters found', () => {
@@ -131,7 +131,7 @@ You gain a +1 bonus to AC and saving throws while wearing this ring.
       const items = extractionService.extractItems(text);
 
       expect(items).toHaveLength(1);
-      expect(items[0].requiresAttunement).toBe(true);
+      expect(items[0].attunement).toBe(true);
     });
 
     it('should handle items without attunement', () => {
@@ -144,7 +144,7 @@ You regain 2d4 + 2 hit points when you drink this potion.
       const items = extractionService.extractItems(text);
 
       expect(items).toHaveLength(1);
-      expect(items[0].requiresAttunement).toBe(false);
+      expect(items[0].attunement).toBe(false);
     });
 
     it('should return empty array when no items found', () => {

@@ -17,7 +17,17 @@
       "Bash(npm install:*)",
       "Bash(docker build:*)",
       "Bash(export DOCKER_BUILDKIT=0)",
-      "Bash(./test-stack.sh:*)"
+      "Bash(./test-stack.sh:*)",
+      "Read(//Users/JoelN/Documents/DnD/5e Rulebooks/**)",
+      "Bash(lsof -i :5432)",
+      "Bash(awk '{print $1}')",
+      "Bash(xargs -r docker rm -f)",
+      "Bash(curl -f http://localhost:3000/health)",
+      "Bash(docker rm -f nexuscodex-doc-api-1)",
+      "Bash(docker rmi nexuscodex-doc-api)",
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(docker run --rm nexuscodex-doc-api:latest cat /app/dist/server.js)",
+      "Bash(docker system prune -af --volumes)"
     ],
     "deny": [],
     "ask": []

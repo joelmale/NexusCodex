@@ -28,7 +28,7 @@ A production-ready microservices platform for managing, processing, and collabor
 
 ### 📚 Document Management
 - **Multi-format Support**: PDF and Markdown documents
-- **S3-Compatible Storage**: MinIO for development, AWS S3/Cloudflare R2 for production
+- **S3-Compatible Storage**: MinIO for development, Google Cloud Storage/AWS S3/Cloudflare R2 for production
 - **Smart Upload**: Client-side uploads via pre-signed URLs (no server bottleneck)
 - **HTTP Range Support**: Efficient PDF streaming for browser-based viewers (PDF.js)
 - **Automatic Thumbnails**: First-page previews generated on upload
@@ -128,7 +128,7 @@ NexusCodex is built as a distributed microservices architecture with three core 
 - **PostgreSQL**: Document metadata, references, annotations, structured data
 - **ElasticSearch**: Full-text search index (document content NOT in Postgres)
 - **Redis**: Job queue + WebSocket session storage
-- **MinIO/S3**: Document file storage
+- **S3-Compatible Storage**: Document file storage (MinIO/GCS/S3/R2)
 
 ---
 
@@ -657,10 +657,11 @@ See [TESTING.md](TESTING.md) for comprehensive manual testing guides including:
 
 **Environment:**
 - Set `NODE_ENV=production`
-- Use production-grade PostgreSQL (AWS RDS, etc.)
-- Use managed Redis (AWS ElastiCache, etc.)
+- Use production-grade PostgreSQL (GCP Cloud SQL, AWS RDS, etc.)
+- Use managed Redis (GCP Memorystore, AWS ElastiCache, etc.)
 - Use managed ElasticSearch (AWS OpenSearch, Elastic Cloud)
-- Use AWS S3 or Cloudflare R2 instead of MinIO
+- Use production object storage (GCS, AWS S3, or Cloudflare R2) instead of MinIO
+- See [DEPLOYMENT_GCP.md](DEPLOYMENT_GCP.md) for Google Cloud Platform deployment guide
 
 **Scaling:**
 - Run multiple `doc-api` instances behind a load balancer
@@ -760,7 +761,7 @@ NexusCodex/
 - PostgreSQL 16 (metadata)
 - ElasticSearch 8 (full-text search)
 - Redis 7 (queue + sessions)
-- MinIO / S3 / R2 (file storage)
+- S3-Compatible Storage (MinIO / GCS / S3 / R2)
 
 **DevOps:**
 - Docker + Docker Compose

@@ -37,7 +37,9 @@ NexusCodex is a document library microservice for a Virtual Tabletop (VTT) syste
 - **PostgreSQL 16**: Primary datastore (Prisma ORM) for documents, references, annotations, structured data
 - **Redis 7**: BullMQ job queue + WebSocket session storage
 - **ElasticSearch 8**: Full-text search for document content (text NOT stored in Postgres)
-- **MinIO (dev) / S3/R2 (prod)**: Document file storage
+- **S3-Compatible Storage**: Document file storage
+  - **Development**: MinIO (Docker container)
+  - **Production**: Google Cloud Storage (GCS), AWS S3, or Cloudflare R2
 
 ### Data Flow
 
@@ -242,6 +244,42 @@ Unit tests are located in `__tests__` directories within each service's `src` fo
 - **S3 URLs**: Pre-signed URLs expire (default: 1 hour). Clients must refresh if needed.
 - **WebSocket Auth**: Not yet implemented. In production, VTT server must authenticate with shared secret.
 - **Docker**: Development `docker-compose.yml` uses weak credentials. Change in production.
+
+## Production Deployment
+
+### Google Cloud Platform (GCP)
+
+NexusCodex is designed to run on GCP with minimal configuration changes. The AWS SDK's S3 client works seamlessly with Google Cloud Storage via the [S3 interoperability API](https://cloud.google.com/storage/docs/interoperability).
+
+**Key GCP Services:**
+- **Cloud SQL for PostgreSQL**: Managed PostgreSQL database (replaces local Docker PostgreSQL)
+- **Memorystore for Redis**: Managed Redis service (replaces local Docker Redis)
+- **Google Cloud Storage (GCS)**: Object storage with S3-compatible API (replaces MinIO)
+- **Compute Engine / Cloud Run**: Container deployment for microservices
+- **ElasticSearch**: Deploy on GCE VMs or use Elastic Cloud
+
+**GCS S3 Interoperability Setup:**
+1. Create a GCS bucket via `gsutil mb` or Console
+2. Enable S3 interoperability in GCS settings
+3. Generate HMAC keys (acts as S3 access key/secret)
+4. Use endpoint `https://storage.googleapis.com` in production
+
+**Environment Changes for GCP:**
+```env
+# Production .env (doc-api, doc-processor)
+DATABASE_URL=postgresql://user:pass@<cloud-sql-ip>:5432/doclib
+REDIS_URL=redis://<memorystore-ip>:6379
+S3_ENDPOINT=https://storage.googleapis.com
+S3_ACCESS_KEY=<gcs-hmac-access-key>
+S3_SECRET_KEY=<gcs-hmac-secret>
+S3_BUCKET=<your-gcs-bucket-name>
+S3_REGION=us-central1  # or your GCS bucket region
+S3_FORCE_PATH_STYLE=false  # GCS uses virtual-hosted-style URLs
+```
+
+**No code changes required** - the existing AWS SDK works with GCS out of the box.
+
+See [DEPLOYMENT_GCP.md](../DEPLOYMENT_GCP.md) for step-by-step deployment instructions.
 
 ## File Structure Highlights
 

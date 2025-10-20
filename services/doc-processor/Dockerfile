@@ -1,6 +1,6 @@
 FROM node:20-alpine AS base
 
-# Install build dependencies for native modules (canvas, sharp)
+# Install build dependencies for native modules (canvas, sharp) and OpenSSL for Prisma
 RUN apk add --no-cache \
     cairo-dev \
     jpeg-dev \
@@ -11,7 +11,8 @@ RUN apk add --no-cache \
     libjpeg-turbo-dev \
     freetype-dev \
     build-base \
-    python3
+    python3 \
+    openssl
 
 # Install dependencies only when needed
 FROM base AS deps

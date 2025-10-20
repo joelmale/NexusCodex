@@ -1,6 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../services/database.service';
-import { QuickSearchQuery } from '../types/structured-data';
 
 /**
  * Register structured data routes
@@ -124,77 +123,6 @@ export async function structuredDataRoutes(fastify: FastifyInstance) {
       } catch (error: any) {
         fastify.log.error(error);
         return reply.status(500).send({ error: 'Failed to fetch structured data' });
-      }
-    }
-  );
-
-  /**
-   * Quick search for structured data (spells, items, monsters)
-   */
-  fastify.get(
-    '/api/search/quick',
-    async (
-      request: FastifyRequest<{
-        Querystring: QuickSearchQuery;
-      }>,
-      reply: FastifyReply
-    ) => {
-      const { term, type, campaign, limit } = request.query;
-
-      try {
-        // Search in structured data first
-        const query: any = {
-          OR: [
-            { name: { contains: term, mode: 'insensitive' } },
-            { searchText: { contains: term, mode: 'insensitive' } },
-          ],
-        };
-
-        if (type) {
-          query.type = type;
-        }
-
-        // If campaign specified, filter by documents in that campaign
-        if (campaign) {
-          query.document = {
-            campaigns: {
-              has: campaign,
-            },
-          };
-        }
-
-        const results = await prisma.structuredData.findMany({
-          where: query,
-          take: limit || 5,
-          include: {
-            document: {
-              select: {
-                id: true,
-                title: true,
-                type: true,
-              },
-            },
-          },
-          orderBy: {
-            name: 'asc',
-          },
-        });
-
-        return reply.send({
-          query: term,
-          total: results.length,
-          results: results.map((r) => ({
-            id: r.id,
-            name: r.name,
-            type: r.type,
-            document: r.document,
-            pageNumber: r.pageNumber,
-            quickView: r.data, // The structured data object
-          })),
-        });
-      } catch (error: any) {
-        fastify.log.error(error);
-        return reply.status(500).send({ error: 'Quick search failed' });
       }
     }
   );

@@ -244,19 +244,35 @@ import_pdf() {
       campaigns: $campaigns
     }')
 
+  # Debug: print payload if verbose mode
+  if [[ "${VERBOSE:-false}" == "true" ]]; then
+    echo -e "  DEBUG: Create Payload:"
+    echo "$create_payload" | jq .
+  fi
+
   local create_response=$(curl -s -X POST "$API_URL/api/documents" \
     -H "Content-Type: application/json" \
     -d "$create_payload")
 
+  # Debug: print response if verbose mode
+  if [[ "${VERBOSE:-false}" == "true" ]]; then
+    echo -e "  DEBUG: API Response:"
+    echo "$create_response" | jq .
+  fi
+
   # Check for errors
   if echo "$create_response" | jq -e '.error' > /dev/null 2>&1; then
     local error_msg=$(echo "$create_response" | jq -r '.error')
+    local error_details=$(echo "$create_response" | jq -r '.details // ""')
     echo -e "${RED}  ✗ Error creating document: $error_msg${NC}"
+    if [[ -n "$error_details" ]]; then
+      echo -e "${RED}     Details: $error_details${NC}"
+    fi
     ((ERROR_COUNT++))
     return 1
   fi
 
-  local doc_id=$(echo "$create_response" | jq -r '.id')
+  local doc_id=$(echo "$create_response" | jq -r '.document.id')
   local upload_url=$(echo "$create_response" | jq -r '.uploadUrl')
 
   if [[ -z "$doc_id" ]] || [[ "$doc_id" == "null" ]]; then
@@ -267,16 +283,26 @@ import_pdf() {
 
   echo -e "  Document ID: $doc_id"
 
+  # Debug: print upload URL if verbose mode
+  if [[ "${VERBOSE:-false}" == "true" ]]; then
+    echo -e "  DEBUG: Upload URL (first 150 chars):"
+    echo "${upload_url:0:150}..."
+  fi
+
   # Upload file to S3
   echo -e "  Uploading file..."
-  if ! curl -s -X PUT "$upload_url" \
+  local upload_status=$(curl -s -X PUT "$upload_url" \
     -H "Content-Type: application/pdf" \
     --data-binary "@$file_path" \
-    -o /dev/null -w "%{http_code}" | grep -q "^2"; then
-    echo -e "${RED}  ✗ Error uploading file${NC}"
+    -o /dev/null -w "%{http_code}")
+
+  if ! echo "$upload_status" | grep -q "^2"; then
+    echo -e "${RED}  ✗ Error uploading file (HTTP $upload_status)${NC}"
     ((ERROR_COUNT++))
     return 1
   fi
+
+  echo -e "${GREEN}  ✓ File uploaded successfully${NC}"
 
   # Trigger processing
   echo -e "  Triggering processing..."
@@ -296,8 +322,13 @@ import_pdf() {
 
 # Main import loop
 echo -e "${YELLOW}Scanning for PDF files...${NC}"
-shopt -s globstar nullglob
-PDF_FILES=("$SOURCE_DIR"/**/*.pdf)
+
+# Use find to locate all PDF files (more portable than globstar)
+PDF_FILES=()
+while IFS= read -r -d '' file; do
+  PDF_FILES+=("$file")
+done < <(find "$SOURCE_DIR" -type f -name "*.pdf" -print0)
+
 TOTAL_FILES=${#PDF_FILES[@]}
 
 echo -e "${GREEN}Found $TOTAL_FILES PDF files${NC}"

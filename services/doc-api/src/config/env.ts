@@ -22,6 +22,7 @@ const envSchema = z.object({
 
   // S3/MinIO
   S3_ENDPOINT: z.string(),
+  S3_PUBLIC_ENDPOINT: z.string().optional(), // Public endpoint for pre-signed URLs (defaults to S3_ENDPOINT)
   S3_ACCESS_KEY: z.string(),
   S3_SECRET_KEY: z.string(),
   S3_BUCKET: z.string().default('documents'),

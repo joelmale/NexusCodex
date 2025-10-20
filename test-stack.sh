@@ -55,7 +55,7 @@ fi
 
 # Test MinIO
 echo -e "${YELLOW}7. Testing MinIO...${NC}"
-if curl -s http://localhost:9000/minio/health/live | grep -q "OK"; then
+if curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
     echo -e "${GREEN}✓ MinIO is healthy${NC}"
 else
     echo -e "${RED}✗ MinIO health check failed${NC}"

@@ -27,7 +27,18 @@
       "Bash(docker rmi nexuscodex-doc-api)",
       "Bash(curl -s http://localhost:3000/health)",
       "Bash(docker run --rm nexuscodex-doc-api:latest cat /app/dist/server.js)",
-      "Bash(docker system prune -af --volumes)"
+      "Bash(docker system prune -af --volumes)",
+      "Bash(curl -f http://localhost:3002/health)",
+      "Bash(curl -s http://localhost:3002/health)",
+      "Bash(curl -s http://localhost:9000/minio/health/live)",
+      "Bash(curl -v http://localhost:9000/minio/health/live)",
+      "Bash(curl -s http://localhost:9000/minio/health/ready)",
+      "Bash(bash test-stack.sh)",
+      "Bash(./scripts/import-dnd-rulebooks.sh --dry-run)",
+      "Bash(curl -s -X POST http://localhost:3000/api/documents -H \"Content-Type: application/json\" -d '{\"\"\"\"title\"\"\"\":\"\"\"\"Test Document\"\"\"\",\"\"\"\"type\"\"\"\":\"\"\"\"rulebook\"\"\"\",\"\"\"\"uploadedBy\"\"\"\":\"\"\"\"test-user\"\"\"\",\"\"\"\"tags\"\"\"\":[\"\"\"\"test\"\"\"\"]}')",
+      "Bash(curl -I http://localhost:9000/minio/health/live)",
+      "Bash(./scripts/import-dnd-rulebooks.sh --source-dir /tmp/dnd-test-import)",
+      "Bash(tee /tmp/import-log.txt)"
     ],
     "deny": [],
     "ask": []

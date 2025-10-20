@@ -11,11 +11,24 @@ import { env } from '../config/env';
 
 class S3Service {
   private client: S3Client;
+  private publicClient: S3Client;
   private bucket: string;
 
   constructor() {
     this.client = new S3Client({
       endpoint: env.S3_ENDPOINT,
+      region: env.S3_REGION,
+      credentials: {
+        accessKeyId: env.S3_ACCESS_KEY,
+        secretAccessKey: env.S3_SECRET_KEY,
+      },
+      forcePathStyle: env.S3_FORCE_PATH_STYLE,
+    });
+
+    // Create a separate client for public pre-signed URLs
+    const publicEndpoint = env.S3_PUBLIC_ENDPOINT || env.S3_ENDPOINT;
+    this.publicClient = new S3Client({
+      endpoint: publicEndpoint,
       region: env.S3_REGION,
       credentials: {
         accessKeyId: env.S3_ACCESS_KEY,
@@ -55,7 +68,8 @@ class S3Service {
       ContentType: contentType,
     });
 
-    return getSignedUrl(this.client, command, {
+    // Use publicClient for pre-signed URLs so they work from outside Docker
+    return getSignedUrl(this.publicClient, command, {
       expiresIn: env.UPLOAD_URL_EXPIRY,
     });
   }

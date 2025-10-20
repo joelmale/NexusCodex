@@ -5,7 +5,6 @@ import {
   CreateAnnotationInput,
   UpdateAnnotationSchema,
   UpdateAnnotationInput,
-  ListAnnotationsQuery,
 } from '../types/annotation';
 
 /**
@@ -34,7 +33,7 @@ export async function annotationRoutes(fastify: FastifyInstance) {
             ...(userId && { userId }),
             ...(campaignId && { campaignId }),
             ...(pageNumber && { pageNumber: parseInt(pageNumber) }),
-            ...(type && { type }),
+            ...(type && { type: type as any }),
             ...(isShared !== undefined && { isShared: isShared === 'true' }),
           },
           orderBy: [{ pageNumber: 'asc' }, { createdAt: 'desc' }],
@@ -280,7 +279,7 @@ export async function annotationRoutes(fastify: FastifyInstance) {
             ...(userId && { userId }),
             ...(campaignId && { campaignId }),
             ...(pageNumber && { pageNumber: parseInt(pageNumber) }),
-            ...(type && { type }),
+            ...(type && { type: type as any }),
             ...(isShared !== undefined && { isShared: isShared === 'true' }),
           },
           take: limit ? parseInt(limit) : 50,

@@ -43,7 +43,7 @@ fastify.get('/', async () => {
 });
 
 // Health check with database connection
-fastify.get('/health', async (request, reply) => {
+fastify.get('/health', async (_request, reply) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     return {

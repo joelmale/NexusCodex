@@ -7,6 +7,8 @@ import { searchRoutes } from './routes/search';
 import { referenceRoutes } from './routes/references';
 import { annotationRoutes } from './routes/annotations';
 import { structuredDataRoutes } from './routes/structured-data';
+import { adminDocumentRoutes } from './routes/admin/documents';
+import { adminQueueRoutes } from './routes/admin/queue';
 import { s3Service } from './services/s3.service';
 import { prisma } from './services/database.service';
 
@@ -58,6 +60,8 @@ fastify.register(searchRoutes);
 fastify.register(referenceRoutes);
 fastify.register(annotationRoutes);
 fastify.register(structuredDataRoutes);
+fastify.register(adminDocumentRoutes);
+fastify.register(adminQueueRoutes);
 
 // Graceful shutdown
 const signals = ['SIGINT', 'SIGTERM'];

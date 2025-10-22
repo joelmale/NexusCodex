@@ -72,6 +72,18 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  admin-ui:
+    build: ./services/admin-ui
+    ports:
+      - "3001:80"
+    depends_on:
+      - doc-api
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    volumes:
+      - ./services/admin-ui:/app
+      - /app/node_modules
+
   postgres:
     image: postgres:16-alpine
     environment:

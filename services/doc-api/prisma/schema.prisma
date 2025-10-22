@@ -73,6 +73,7 @@ model Document {
 
   // Search & Processing
   searchIndex   String?  // ElasticSearch document ID
+  contentHash   String?  // SHA-256 hash of file content for deduplication
   ocrStatus     OcrStatus @default(not_required)
 
   // Access
@@ -88,6 +89,7 @@ model Document {
   @@index([type])
   @@index([campaigns])
   @@index([tags])
+  @@index([contentHash])
   @@map("documents")
 }
 

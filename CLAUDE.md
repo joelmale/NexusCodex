@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-NexusCodex is a document library microservice for a Virtual Tabletop (VTT) system, enabling document upload, processing, search, real-time collaboration, and structured data extraction for D&D content. The system is composed of three Node.js/TypeScript microservices orchestrated via Docker Compose.
+NexusCodex is a document library microservice for a Virtual Tabletop (VTT) system, enabling document upload, processing, search, real-time collaboration, and structured data extraction for D&D content. The system is composed of four microservices (three Node.js/TypeScript backend services and one React frontend) orchestrated via Docker Compose.
 
 ## Architecture
 
@@ -16,6 +16,7 @@ NexusCodex is a document library microservice for a Virtual Tabletop (VTT) syste
 - Manages references/bookmarks, annotations, and structured data
 - Supports HTTP Range requests for PDF streaming (critical for PDF.js)
 - Triggers background processing jobs via BullMQ
+- Admin endpoints for queue management, document validation, and system stats
 
 **doc-processor** (Background Worker)
 - BullMQ worker that processes uploaded documents
@@ -24,6 +25,7 @@ NexusCodex is a document library microservice for a Virtual Tabletop (VTT) syste
 - Markdown processing (remark/unified)
 - Structured data extraction for D&D content (spells, monsters, items)
 - Indexes extracted text in ElasticSearch (NOT in PostgreSQL)
+- Content hash calculation for duplicate detection
 
 **doc-websocket** (Port 3002)
 - Express + ws-based WebSocket server for real-time collaboration
@@ -31,6 +33,14 @@ NexusCodex is a document library microservice for a Virtual Tabletop (VTT) syste
 - Synchronized document viewing (page navigation, scroll position)
 - Real-time annotation sync across session participants
 - DM "push" features to force page navigation for players
+
+**admin-ui** (Port 3001)
+- React + Vite-based admin dashboard
+- Uses shadcn/ui components with Tailwind CSS
+- TanStack Query for data fetching and caching
+- Monitors processing queues, document status, and system health
+- Manages document metadata, duplicates, and validation
+- View processing logs and retry failed jobs
 
 ### Storage Layer
 
@@ -103,11 +113,17 @@ cd services/[service-name]
 # Install dependencies
 npm install
 
-# Run in watch mode (hot reload with tsx)
+# Run in watch mode (hot reload with tsx for backend services)
 npm run dev
 
-# Build TypeScript
+# For admin-ui, uses Vite dev server
+cd services/admin-ui && npm run dev
+
+# Build TypeScript (backend services)
 npm run build
+
+# Build admin-ui for production
+cd services/admin-ui && npm run build
 
 # Start production build
 npm start
@@ -213,6 +229,42 @@ Each service requires a `.env` file (see `README.md` for full templates). Key va
 
 Unit tests are located in `__tests__` directories within each service's `src` folder.
 
+## Admin API Endpoints
+
+The doc-api service includes admin-specific endpoints for system management:
+
+### Admin Document Management (`/api/admin/documents`)
+- **GET** `/api/admin/documents` - List documents with enhanced filters (status, type, uploadedBy, date range, tags, pagination)
+- **PATCH** `/api/admin/documents/:id` - Bulk update document metadata
+- **DELETE** `/api/admin/documents/:id` - Delete document + S3 file + ElasticSearch entry
+- **POST** `/api/admin/documents/:id/reprocess` - Retry failed document processing
+- **GET** `/api/admin/stats` - System statistics (total docs, storage, queue stats, recent uploads)
+- **GET** `/api/admin/validation/orphaned` - Find documents with missing S3 files
+- **GET** `/api/admin/validation/metadata` - Find documents with inconsistent metadata
+- **GET** `/api/admin/validation/elastic` - Find ElasticSearch inconsistencies
+- **GET** `/api/admin/validation/comprehensive` - Run all validation checks
+
+### Admin Queue Management (`/api/admin/queue`)
+- **GET** `/api/admin/queue/stats` - Job counts by status (waiting, active, completed, failed)
+- **GET** `/api/admin/queue/jobs` - List jobs with filters (status, limit, offset)
+- **POST** `/api/admin/queue/jobs/:id/retry` - Retry specific failed job
+- **DELETE** `/api/admin/queue/jobs/:id` - Remove job from queue
+- **POST** `/api/admin/queue/clean` - Clean old completed/failed jobs
+- **GET** `/api/admin/queue/jobs/:id/logs` - Get processing logs for a job (stored in Redis)
+
+### Key Admin Services
+
+**content-hash.service.ts** (`services/doc-api/src/services/content-hash.service.ts`)
+- Calculates SHA-256 hash of uploaded files
+- Detects duplicate documents by content hash
+- Provides merge functionality for duplicates
+- Used for data quality and storage optimization
+
+**logging.service.ts** (`services/doc-api/src/services/logging.service.ts`)
+- Stores processing logs in Redis (with TTL)
+- Retrieves logs for debugging failed jobs
+- Accessible via admin API for troubleshooting
+
 ## Common Patterns
 
 ### Adding a New API Endpoint
@@ -222,6 +274,14 @@ Unit tests are located in `__tests__` directories within each service's `src` fo
 3. Call Prisma client via `services/doc-api/src/services/database.service.ts`
 4. Return standardized JSON responses
 5. Add integration tests in `services/doc-api/src/__tests__/`
+
+### Adding a New Admin Endpoint
+
+1. Define route in `services/doc-api/src/routes/admin/[resource].ts`
+2. Use Zod schemas from `services/doc-api/src/types/admin.ts` for validation
+3. Register admin routes in `services/doc-api/src/server.ts`
+4. Return standardized JSON responses with error handling
+5. Consider impact on admin-ui components
 
 ### Adding a New WebSocket Event
 
@@ -237,6 +297,14 @@ Unit tests are located in `__tests__` directories within each service's `src` fo
 2. Import and call in `services/doc-processor/src/workers/process-document.worker.ts`
 3. Update document status enum in Prisma schema if needed
 4. Add unit tests in `services/doc-processor/src/services/__tests__/`
+
+### Adding an Admin UI Component
+
+1. Create component in `services/admin-ui/src/components/`
+2. Use shadcn/ui primitives and Tailwind for styling
+3. Use TanStack Query for API data fetching
+4. Follow existing patterns for error handling and loading states
+5. Ensure responsive design (mobile/tablet support)
 
 ## Security Notes
 
@@ -287,21 +355,41 @@ See [DEPLOYMENT_GCP.md](../DEPLOYMENT_GCP.md) for step-by-step deployment instru
 services/
 ├── doc-api/
 │   ├── src/
-│   │   ├── routes/         # API endpoints (documents, search, references, annotations, structured-data, processing)
-│   │   ├── services/       # Business logic (s3, database, queue, elastic)
+│   │   ├── routes/
+│   │   │   ├── admin/      # Admin-specific endpoints (documents, queue)
+│   │   │   ├── documents.ts, search.ts, references.ts, annotations.ts, structured-data.ts, processing.ts
+│   │   ├── services/       # Business logic
+│   │   │   ├── s3.service.ts, database.service.ts, queue.service.ts, elastic.service.ts
+│   │   │   ├── content-hash.service.ts  # Duplicate detection
+│   │   │   └── logging.service.ts       # Processing logs
 │   │   ├── types/          # Zod schemas & TypeScript types
-│   │   └── server.ts       # Fastify app setup
+│   │   │   ├── admin.ts    # Admin-specific types
+│   │   │   └── document.ts, search.ts, etc.
+│   │   └── server.ts       # Fastify app setup with admin routes
 │   └── prisma/schema.prisma  # Master schema
 ├── doc-processor/
 │   ├── src/
-│   │   ├── services/       # Processing logic (pdf, ocr, markdown, thumbnail, extraction, elastic)
+│   │   ├── services/
+│   │   │   ├── pdf.service.ts, ocr.service.ts, markdown.service.ts, thumbnail.service.ts
+│   │   │   ├── extraction.service.ts    # D&D content extraction
+│   │   │   ├── elastic.service.ts
+│   │   │   ├── content-hash.service.ts  # File hashing for duplicates
+│   │   │   └── logging.service.ts       # Log processing steps
 │   │   └── workers/        # BullMQ job handlers
 │   └── prisma/schema.prisma  # Symlink to doc-api schema
-└── doc-websocket/
+├── doc-websocket/
+│   ├── src/
+│   │   ├── handlers/       # WebSocket event handlers (session, navigation, push, annotation)
+│   │   ├── services/       # Redis, session management
+│   │   └── websocket/      # WebSocket server setup
+└── admin-ui/
     ├── src/
-    │   ├── handlers/       # WebSocket event handlers (session, navigation, push, annotation)
-    │   ├── services/       # Redis, session management
-    │   └── websocket/      # WebSocket server setup
+    │   ├── components/     # React components (shadcn/ui based)
+    │   ├── pages/          # Route pages (Dashboard, Documents, Queue, etc.)
+    │   ├── lib/            # Utilities and API client
+    │   └── main.tsx        # Vite entry point
+    ├── Dockerfile          # Multi-stage build (Vite build + nginx)
+    └── package.json        # React, Vite, TailwindCSS, TanStack Query
 ```
 
 ## Troubleshooting
@@ -318,12 +406,47 @@ services/
 
 **Docker build failures on macOS**: Set `export DOCKER_BUILDKIT=0` to use legacy builder (avoids permission issues)
 
+## Implementation Status - Admin Interface
+
+The admin interface implementation is **complete** with the following features:
+
+### ✅ Phase 1: Foundation & Document Management (Complete)
+- Admin UI service with React + Vite + TailwindCSS + shadcn/ui
+- Document management endpoints in `/api/admin/documents`
+- Document listing with filters (status, type, uploadedBy, date range, tags)
+- Bulk update, delete, and reprocess operations
+- Dashboard with system statistics
+- Validation endpoints (orphaned files, metadata issues, ElasticSearch inconsistencies)
+
+### ✅ Phase 2: Processing Queue Management (Complete)
+- Queue monitoring endpoints in `/api/admin/queue`
+- Job listing with filters and status tracking
+- Job retry and removal capabilities
+- Clean old jobs functionality
+- Processing logs stored in Redis via `logging.service.ts`
+- Job log retrieval for debugging
+
+### 🔄 Phase 3-7: Advanced Features (Planned)
+Future phases include:
+- Advanced search and deduplication (Phase 3)
+- Tag management and metadata tools (Phase 4)
+- User management and authentication (Phase 5)
+- Bulk upload, preview, ElasticSearch index management (Phase 6)
+- System health monitoring and performance analytics (Phase 7)
+
+### Key Services Implemented
+- **content-hash.service.ts**: SHA-256 hashing, duplicate detection, merge functionality
+- **logging.service.ts**: Redis-backed processing logs with TTL
+
 ## Key Files to Review
 
-- `docker-compose.yml`: Full service orchestration
-- `services/doc-api/src/server.ts`: API entry point with all route registrations
+- `docker-compose.yml`: Full service orchestration (includes admin-ui on port 3001)
+- `services/doc-api/src/server.ts`: API entry point with admin route registrations
+- `services/doc-api/src/routes/admin/documents.ts`: Admin document management endpoints
+- `services/doc-api/src/routes/admin/queue.ts`: Admin queue management endpoints
 - `services/doc-processor/src/workers/process-document.worker.ts`: Core processing logic
 - `services/doc-websocket/src/websocket/server.ts`: WebSocket event routing
 - `services/doc-api/prisma/schema.prisma`: Complete data models
+- `services/admin-ui/src/main.tsx`: Admin UI entry point
 - `test-stack.sh`: Quick health check script
 - `README.md`: Comprehensive API documentation and examples

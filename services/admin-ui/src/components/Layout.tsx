@@ -10,10 +10,13 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = [
     { path: '/', label: 'Dashboard' },
     { path: '/documents', label: 'Documents' },
+    { path: '/bulk-upload', label: 'Bulk Upload' },
     { path: '/processing', label: 'Processing' },
     { path: '/search', label: 'Search' },
     { path: '/deduplication', label: 'Deduplication' },
     { path: '/data-quality', label: 'Data Quality' },
+    { path: '/elasticsearch', label: 'ElasticSearch' },
+    { path: '/health', label: 'Health' },
   ]
 
   return (

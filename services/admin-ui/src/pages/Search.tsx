@@ -72,7 +72,7 @@ export default function Search() {
       if (uploadedAfter) params.append('uploadedAfter', uploadedAfter)
       if (uploadedBefore) params.append('uploadedBefore', uploadedBefore)
 
-      const response = await fetch(`http://localhost:3000/api/search/advanced?${params}`)
+      const response = await fetch(`http://localhost:3005/api/search/advanced?${params}`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -157,7 +157,6 @@ export default function Search() {
                     <SelectValue placeholder="All types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All types</SelectItem>
                     <SelectItem value="rulebook">Rulebook</SelectItem>
                     <SelectItem value="adventure">Adventure</SelectItem>
                     <SelectItem value="character">Character</SelectItem>

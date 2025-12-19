@@ -127,7 +127,7 @@ export async function searchRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/deduplication/duplicates - Find all duplicate documents
    */
-  fastify.get('/api/deduplication/duplicates', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.get('/api/deduplication/duplicates', async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const duplicates = await contentHashService.findAllDuplicates();
 

@@ -27,8 +27,10 @@ export default function Documents() {
   const [status, setStatus] = useState<string>('')
   const [type, setType] = useState<string>('')
   const [search, setSearch] = useState('')
+  const [editingDoc, setEditingDoc] = useState<Document | null>(null)
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
 
-  const { data, isLoading, error } = useQuery<DocumentsResponse>({
+  const { data, isLoading, error, refetch } = useQuery<DocumentsResponse>({
     queryKey: ['documents', page, status, type, search],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -64,6 +66,59 @@ export default function Documents() {
     if (bytes === 0) return '0 B'
     const i = Math.floor(Math.log(bytes) / Math.log(1024))
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
+  }
+
+  const handleView = (doc: Document) => {
+    // Open document in new tab
+    window.open(`/api/documents/${doc.id}/content`, '_blank')
+  }
+
+  const handleEdit = (doc: Document) => {
+    setEditingDoc(doc)
+  }
+
+  const handleDelete = async (docId: string) => {
+    if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+      return
+    }
+
+    setDeletingDocId(docId)
+    try {
+      const response = await fetch(`/api/admin/documents/${docId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete document')
+      }
+
+      // Refresh the documents list
+      refetch()
+      alert('Document deleted successfully')
+    } catch (error) {
+      console.error('Delete error:', error)
+      alert('Failed to delete document')
+    } finally {
+      setDeletingDocId(null)
+    }
+  }
+
+  const handleReprocess = async (docId: string) => {
+    try {
+      const response = await fetch(`/api/admin/documents/${docId}/reprocess`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to reprocess document')
+      }
+
+      alert('Document reprocessing queued successfully')
+      refetch()
+    } catch (error) {
+      console.error('Reprocess error:', error)
+      alert('Failed to reprocess document')
+    }
   }
 
   if (error) {
@@ -188,9 +243,32 @@ export default function Documents() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex gap-2">
-                            <button className="text-blue-600 hover:text-blue-900">Edit</button>
-                            <button className="text-green-600 hover:text-green-900">View</button>
-                            <button className="text-red-600 hover:text-red-900">Delete</button>
+                            <button
+                              onClick={() => handleEdit(doc)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleView(doc)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => handleReprocess(doc.id)}
+                              className="text-purple-600 hover:text-purple-900"
+                              title="Reprocess document"
+                            >
+                              Reprocess
+                            </button>
+                            <button
+                              onClick={() => handleDelete(doc.id)}
+                              disabled={deletingDocId === doc.id}
+                              className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                            >
+                              {deletingDocId === doc.id ? 'Deleting...' : 'Delete'}
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -225,6 +303,95 @@ export default function Documents() {
           )}
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editingDoc && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6">
+            <h2 className="text-2xl font-bold mb-4">Edit Document</h2>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault()
+                const formData = new FormData(e.currentTarget)
+                const updates = {
+                  title: formData.get('title'),
+                  type: formData.get('type'),
+                  tags: (formData.get('tags') as string).split(',').map(t => t.trim()).filter(Boolean),
+                }
+
+                try {
+                  const response = await fetch(`/api/admin/documents/${editingDoc.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates),
+                  })
+
+                  if (!response.ok) throw new Error('Failed to update document')
+
+                  alert('Document updated successfully')
+                  setEditingDoc(null)
+                  refetch()
+                } catch (error) {
+                  console.error('Update error:', error)
+                  alert('Failed to update document')
+                }
+              }}
+            >
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Title</label>
+                  <input
+                    name="title"
+                    defaultValue={editingDoc.title}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Type</label>
+                  <select
+                    name="type"
+                    defaultValue={editingDoc.type}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="rulebook">Rulebook</option>
+                    <option value="campaign_note">Campaign Note</option>
+                    <option value="handout">Handout</option>
+                    <option value="map">Map</option>
+                    <option value="character_sheet">Character Sheet</option>
+                    <option value="homebrew">Homebrew</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Tags (comma-separated)</label>
+                  <input
+                    name="tags"
+                    defaultValue={editingDoc.tags.join(', ')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    placeholder="dnd5e, monsters, spells"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-6">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingDoc(null)}
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

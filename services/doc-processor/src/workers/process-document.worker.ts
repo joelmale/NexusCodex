@@ -4,6 +4,7 @@ import { prisma } from '../services/database.service';
 import { s3Service } from '../services/s3.service';
 import { pdfService } from '../services/pdf.service';
 import { thumbnailService } from '../services/thumbnail.service';
+import { pageImageService } from '../services/page-image.service';
 import { elasticService } from '../services/elastic.service';
 import { ocrService } from '../services/ocr.service';
 import { markdownService } from '../services/markdown.service';
@@ -78,6 +79,7 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
     let pageCount = 0;
     let thumbnailKey: string | undefined;
     let needsOCR = false;
+    const pageImageKeys: string[] = [];
 
     // Process based on document format
     if (document.format === 'pdf') {
@@ -106,14 +108,36 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
       // Generate thumbnail
       console.log(`[Worker] Generating thumbnail`);
       await loggingService.logInfo(jobId, 'Generating thumbnail');
-      const thumbnailBuffer = await thumbnailService.generateThumbnail(fileBuffer);
+      try {
+        const thumbnailBuffer = await thumbnailService.generateThumbnail(fileBuffer);
 
-      // Upload thumbnail to S3
-      thumbnailKey = `thumbnails/${documentId}.jpg`;
-      console.log(`[Worker] Uploading thumbnail to S3: ${thumbnailKey}`);
-      await loggingService.logInfo(jobId, `Uploading thumbnail to S3: ${thumbnailKey}`);
-      await s3Service.uploadFile(thumbnailKey, thumbnailBuffer, 'image/jpeg');
-      await loggingService.logInfo(jobId, 'Thumbnail uploaded successfully');
+        // Upload thumbnail to S3
+        thumbnailKey = `thumbnails/${documentId}.jpg`;
+        console.log(`[Worker] Uploading thumbnail to S3: ${thumbnailKey}`);
+        await loggingService.logInfo(jobId, `Uploading thumbnail to S3: ${thumbnailKey}`);
+        await s3Service.uploadFile(thumbnailKey, thumbnailBuffer, 'image/jpeg');
+        await loggingService.logInfo(jobId, 'Thumbnail uploaded successfully');
+      } catch (thumbError: any) {
+        thumbnailKey = undefined;
+        console.warn(`[Worker] Thumbnail generation failed, continuing without thumbnail: ${thumbError.message}`);
+        await loggingService.logWarn(jobId, `Thumbnail generation failed, continuing: ${thumbError.message}`);
+      }
+
+      // Generate per-page WebP images for reader
+      console.log(`[Worker] Rendering page images`);
+      await loggingService.logInfo(jobId, 'Rendering page images');
+      try {
+        const pageImages = await pageImageService.renderPageImages(fileBuffer);
+        for (const image of pageImages) {
+          const pageKey = `page-images/${documentId}/page-${image.pageNumber}.webp`;
+          await s3Service.uploadFile(pageKey, image.buffer, 'image/webp');
+          pageImageKeys.push(pageKey);
+        }
+        await loggingService.logInfo(jobId, `Uploaded ${pageImageKeys.length} page images`);
+      } catch (pageError: any) {
+        console.warn(`[Worker] Page image rendering failed, continuing without page images: ${pageError.message}`);
+        await loggingService.logWarn(jobId, `Page image rendering failed, continuing: ${pageError.message}`);
+      }
 
     } else if (document.format === 'markdown') {
       // Extract text from Markdown
@@ -215,6 +239,10 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
         thumbnailKey,
         searchIndex,
         ocrStatus: needsOCR ? 'pending' : 'completed',
+        metadata: {
+          ...(document.metadata as any),
+          pageImages: pageImageKeys,
+        },
       },
     });
 

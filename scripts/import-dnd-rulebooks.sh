@@ -159,13 +159,14 @@ get_document_type() {
       echo "rulebook"
       ;;
     "supplements"|"unearthed-arcana")
-      echo "supplement"
+      echo "rulebook"
       ;;
     "character-sheets")
-      echo "reference"
+      echo "character_sheet"
       ;;
     *)
-      echo "other"
+      # Default to rulebook to satisfy doc-api enum (rulebook|campaign_note|handout|map|character_sheet|homebrew)
+      echo "rulebook"
       ;;
   esac
 }

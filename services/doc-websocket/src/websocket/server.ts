@@ -1,5 +1,6 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { IncomingMessage } from 'http';
+import jwt from 'jsonwebtoken';
 import { WSMessageSchema, IncomingEventType } from '../types/events';
 import { handleSessionCreate, handleSessionJoin, handleSessionLeave, handleSessionUpdateSettings } from '../handlers/session.handler';
 import { handlePageChange, handleScrollSync } from '../handlers/navigation.handler';
@@ -29,10 +30,28 @@ export class DocumentWebSocketServer {
    * Set up WebSocket connection handler
    */
   private setupConnectionHandler(): void {
-    this.wss.on('connection', (ws: ExtendedWebSocket, _request: IncomingMessage) => {
-      console.log('New WebSocket connection established');
+    this.wss.on('connection', (ws: ExtendedWebSocket, request: IncomingMessage) => {
+      // Authenticate WebSocket connection
+      try {
+        const url = new URL(request.url || '', 'http://localhost');
+        const token = url.searchParams.get('token');
 
-      ws.isAlive = true;
+        if (!token) {
+          console.log('WebSocket connection rejected: No token provided');
+          ws.close(1008, 'Authentication required');
+          return;
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+        ws.userId = decoded.userId;
+        ws.isAlive = true;
+
+        console.log(`WebSocket connection established for user: ${decoded.userId}`);
+      } catch (error) {
+        console.log('WebSocket connection rejected: Invalid token');
+        ws.close(1008, 'Invalid authentication token');
+        return;
+      }
 
       // Handle pong responses for heartbeat
       ws.on('pong', () => {

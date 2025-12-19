@@ -29,6 +29,9 @@ const envSchema = z.object({
   WORKER_CONCURRENCY: z.string().default('2').transform(Number),
   THUMBNAIL_WIDTH: z.string().default('300').transform(Number),
   THUMBNAIL_QUALITY: z.string().default('80').transform(Number),
+  PAGE_IMAGE_WIDTH: z.string().default('1200').transform(Number),
+  PAGE_IMAGE_QUALITY: z.string().default('80').transform(Number),
+  PAGE_IMAGE_MAX_PAGES: z.string().default('200').transform(Number),
 });
 
 export const env = envSchema.parse(process.env);

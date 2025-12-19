@@ -1,0 +1,63 @@
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { createCanvas } from 'canvas';
+import sharp from 'sharp';
+import { env } from '../config/env';
+
+// Configure PDF.js worker
+// @ts-ignore
+pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
+
+export interface RenderedPageImage {
+  pageNumber: number;
+  buffer: Buffer;
+}
+
+class PageImageService {
+  /**
+   * Render PDF pages to WebP buffers for reader consumption
+   */
+  async renderPageImages(pdfBuffer: Buffer): Promise<RenderedPageImage[]> {
+    const images: RenderedPageImage[] = [];
+
+    // Convert Buffer to Uint8Array for PDF.js
+    const uint8Array = new Uint8Array(pdfBuffer);
+    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+    const pdfDocument = await loadingTask.promise;
+
+    const totalPages = pdfDocument.numPages;
+    const maxPages = Math.min(env.PAGE_IMAGE_MAX_PAGES, totalPages);
+
+    try {
+      for (let pageNumber = 1; pageNumber <= maxPages; pageNumber++) {
+        const page = await pdfDocument.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 1.0 });
+        const scale = env.PAGE_IMAGE_WIDTH / viewport.width;
+        const scaledViewport = page.getViewport({ scale });
+
+        const canvas = createCanvas(scaledViewport.width, scaledViewport.height);
+        const context = canvas.getContext('2d');
+
+        // Render PDF page to canvas
+        // @ts-ignore
+        await page.render({
+          canvasContext: context as any,
+          viewport: scaledViewport,
+        }).promise;
+
+        // Convert to WebP buffer
+        const pngBuffer = canvas.toBuffer('image/png');
+        const webpBuffer = await sharp(pngBuffer)
+          .webp({ quality: env.PAGE_IMAGE_QUALITY })
+          .toBuffer();
+
+        images.push({ pageNumber, buffer: webpBuffer });
+      }
+
+      return images;
+    } finally {
+      await pdfDocument.destroy();
+    }
+  }
+}
+
+export const pageImageService = new PageImageService();

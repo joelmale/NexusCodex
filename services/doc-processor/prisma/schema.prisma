@@ -53,6 +53,7 @@ model Document {
   description String   @default("")
   type        DocumentType
   format      DocumentFormat
+  contentHash String?  @unique
 
   // Storage
   storageKey    String

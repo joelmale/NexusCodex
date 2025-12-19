@@ -6,7 +6,7 @@ interface ProcessingLog {
   level: 'info' | 'warn' | 'error';
   message: string;
   step?: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 interface QueueStats {

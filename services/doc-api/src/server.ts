@@ -1,5 +1,14 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import jwt from '@fastify/jwt';
+
+// Extend FastifyInstance to include our decorators
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: (request: any, reply: any) => Promise<void>;
+    requireAdmin: (request: any, reply: any) => Promise<void>;
+  }
+}
 import { env } from './config/env';
 import { documentRoutes } from './routes/documents';
 import { processingRoutes } from './routes/processing';
@@ -7,10 +16,19 @@ import { searchRoutes } from './routes/search';
 import { referenceRoutes } from './routes/references';
 import { annotationRoutes } from './routes/annotations';
 import { structuredDataRoutes } from './routes/structured-data';
+import { authRoutes } from './routes/auth';
 import { adminDocumentRoutes } from './routes/admin/documents';
 import { adminQueueRoutes } from './routes/admin/queue';
+import { adminSearchRoutes } from './routes/admin/search';
+import { adminDuplicatesRoutes } from './routes/admin/duplicates';
+import { adminTagRoutes } from './routes/admin/tags';
+import { adminValidationRoutes } from './routes/admin/validation';
+import { usersRoutes as adminUserRoutes } from './routes/admin/users';
+import { elasticsearchRoutes } from './routes/admin/elasticsearch';
+import { healthRoutes } from './routes/admin/health';
 import { s3Service } from './services/s3.service';
 import { prisma } from './services/database.service';
+import { AlertsService } from './services/alerts.service';
 
 const fastify = Fastify({
   logger: {
@@ -23,6 +41,33 @@ fastify.register(cors, {
   origin: true, // Allow all origins in development
   credentials: true,
 });
+
+// Register JWT
+fastify.register(jwt, {
+  secret: process.env.JWT_SECRET || 'your-secret-key',
+});
+
+// Authentication decorator
+fastify.decorate('authenticate', async (request: any, reply: any) => {
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    reply.code(401).send({ error: 'Unauthorized' });
+  }
+});
+
+// Admin authorization decorator - DISABLED for development
+// fastify.decorate('requireAdmin', async (request: any, reply: any) => {
+//   try {
+//     await request.jwtVerify();
+//     const { role } = request.user;
+//     if (role !== 'admin') {
+//       return reply.code(403).send({ error: 'Admin access required' });
+//     }
+//   } catch (err) {
+//     reply.code(401).send({ error: 'Unauthorized' });
+//   }
+// });
 
 // Health check endpoint
 fastify.get('/', async () => {
@@ -60,8 +105,16 @@ fastify.register(searchRoutes);
 fastify.register(referenceRoutes);
 fastify.register(annotationRoutes);
 fastify.register(structuredDataRoutes);
+fastify.register(authRoutes);
 fastify.register(adminDocumentRoutes);
 fastify.register(adminQueueRoutes);
+fastify.register(adminSearchRoutes);
+fastify.register(adminDuplicatesRoutes);
+fastify.register(adminTagRoutes);
+fastify.register(adminValidationRoutes);
+fastify.register(adminUserRoutes);
+fastify.register(elasticsearchRoutes);
+fastify.register(healthRoutes);
 
 // Graceful shutdown
 const signals = ['SIGINT', 'SIGTERM'];
@@ -80,6 +133,10 @@ const start = async () => {
     // Initialize S3 bucket
     fastify.log.info('Initializing S3 bucket...');
     await s3Service.initializeBucket();
+
+    // Initialize alert rules
+    fastify.log.info('Initializing alert rules...');
+    await AlertsService.initializeRules();
 
     // Start server
     await fastify.listen({

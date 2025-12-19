@@ -2,7 +2,7 @@ services:
   doc-api:
     build: ./services/doc-api
     ports:
-      - "3000:3000"
+      - "3005:3000"
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://user:pass@postgres:5432/doclib
@@ -79,7 +79,7 @@ services:
     depends_on:
       - doc-api
     environment:
-      - VITE_API_URL=http://localhost:3000
+      - VITE_API_URL=http://localhost:3005
     volumes:
       - ./services/admin-ui:/app
       - /app/node_modules
@@ -90,8 +90,6 @@ services:
       - POSTGRES_DB=doclib
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=pass
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

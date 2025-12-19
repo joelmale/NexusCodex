@@ -3,13 +3,16 @@ import { randomUUID } from 'crypto';
 import { Readable } from 'stream';
 import { prisma } from '../services/database.service';
 import { s3Service } from '../services/s3.service';
+import { FilePreviewService } from '../services/file-preview.service';
 import {
   CreateDocumentSchema,
   UpdateDocumentSchema,
   ListDocumentsQuerySchema,
+  BulkCreateDocumentSchema,
   CreateDocumentInput,
   UpdateDocumentInput,
   ListDocumentsQuery,
+  BulkCreateDocumentInput,
 } from '../types/document';
 
 export async function documentRoutes(fastify: FastifyInstance) {
@@ -26,6 +29,9 @@ export async function documentRoutes(fastify: FastifyInstance) {
         const fileExtension = data.fileName.split('.').pop() || data.format;
         const storageKey = `documents/${randomUUID()}.${fileExtension}`;
 
+        // Use provided uploadedBy as the userId (caller must supply a valid user id)
+        const uploader = await prisma.user.findUnique({ where: { id: data.uploadedBy } });
+
         // Create database record
         const document = await prisma.document.create({
           data: {
@@ -37,6 +43,7 @@ export async function documentRoutes(fastify: FastifyInstance) {
             fileSize: data.fileSize,
             author: data.author,
             uploadedBy: data.uploadedBy,
+            uploadedById: uploader ? data.uploadedBy : undefined,
             tags: data.tags,
             collections: data.collections,
             campaigns: data.campaigns,
@@ -65,10 +72,221 @@ export async function documentRoutes(fastify: FastifyInstance) {
   );
 
   /**
+   * POST /api/documents/bulk - Create multiple documents and get signed upload URLs
+   */
+  fastify.post<{ Body: BulkCreateDocumentInput }>(
+    '/api/documents/bulk',
+    async (request: FastifyRequest<{ Body: BulkCreateDocumentInput }>, reply: FastifyReply) => {
+      try {
+        const data = BulkCreateDocumentSchema.parse(request.body);
+        const batchId = data.batchId || randomUUID();
+        const results = [];
+
+        for (const docData of data.documents) {
+          try {
+            // Generate unique storage key
+            const fileExtension = docData.fileName.split('.').pop() || docData.format;
+            const storageKey = `documents/${randomUUID()}.${fileExtension}`;
+
+            const uploader = await prisma.user.findUnique({ where: { id: docData.uploadedBy } });
+
+            // Create database record
+            const document = await prisma.document.create({
+              data: {
+                title: docData.title,
+                description: docData.description,
+                type: docData.type,
+                format: docData.format,
+            storageKey,
+            fileSize: docData.fileSize,
+            author: docData.author,
+                uploadedBy: docData.uploadedBy,
+                uploadedById: uploader ? docData.uploadedBy : undefined,
+            tags: docData.tags,
+            collections: docData.collections,
+            campaigns: docData.campaigns,
+            isPublic: docData.isPublic,
+            metadata: { ...docData.metadata, batchId },
+              },
+            });
+
+            // Generate signed upload URL
+            const contentType = getContentType(docData.format);
+            const uploadUrl = await s3Service.getUploadUrl(storageKey, contentType);
+
+            results.push({
+              document,
+              uploadUrl,
+              expiresIn: 3600,
+              success: true,
+            });
+          } catch (docError: any) {
+            results.push({
+              error: docError.message,
+              fileName: docData.fileName,
+              success: false,
+            });
+          }
+        }
+
+        return reply.status(201).send({
+          batchId,
+          results,
+          total: data.documents.length,
+          successful: results.filter(r => r.success).length,
+          failed: results.filter(r => !r.success).length,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(400).send({
+          error: 'Invalid bulk request',
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  /**
+   * GET /api/documents/bulk/:batchId/status - Get bulk upload status
+   */
+  fastify.get(
+    '/api/documents/bulk/:batchId/status',
+    { preHandler: fastify.authenticate },
+    async (request, reply) => {
+      const { batchId } = request.params as { batchId: string };
+
+      try {
+        // Get all documents in this batch
+        const documents = await prisma.document.findMany({
+          where: {
+            metadata: {
+              path: ['batchId'],
+              equals: batchId,
+            },
+          },
+        });
+
+        const total = documents.length;
+        const processed = documents.filter(doc => doc.searchIndex !== null).length;
+        const failed = documents.filter(doc => doc.ocrStatus === 'failed').length;
+        const processing = documents.filter(doc => doc.ocrStatus === 'processing').length;
+
+        return {
+          batchId,
+          total,
+          processed,
+          failed,
+          processing,
+          pending: total - processed - failed - processing,
+          documents: documents.map((doc: any) => ({
+            id: doc.id,
+            title: doc.title,
+            status: doc.ocrStatus,
+            indexed: doc.searchIndex !== null,
+            createdAt: doc.createdAt,
+            updatedAt: doc.updatedAt,
+          })),
+        };
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to get bulk status',
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /api/documents/:id/preview - Generate file preview
+   */
+  fastify.post(
+    '/api/documents/:id/preview',
+    { preHandler: fastify.authenticate },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const options = request.body as { generateThumbnail?: boolean; thumbnailSize?: number };
+
+      try {
+        // Get document
+        const document = await prisma.document.findUnique({
+          where: { id },
+        });
+
+        if (!document) {
+          return reply.status(404).send({ error: 'Document not found' });
+        }
+
+        // Generate preview
+        const preview = await FilePreviewService.generatePreview(document.storageKey, options);
+
+        // Update document with preview metadata
+        await prisma.document.update({
+          where: { id },
+          data: {
+            metadata: {
+              ...(document.metadata as object || {}),
+              preview: preview as any,
+            },
+          },
+        });
+
+        return reply.send(preview);
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to generate preview',
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  /**
+   * GET /api/documents/:id/preview - Get existing file preview
+   */
+  fastify.get(
+    '/api/documents/:id/preview',
+    { preHandler: fastify.authenticate },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      try {
+        // Get document with preview metadata
+        const document = await prisma.document.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            metadata: true,
+          },
+        });
+
+        if (!document) {
+          return reply.status(404).send({ error: 'Document not found' });
+        }
+
+        const preview = (document.metadata as any)?.preview;
+        if (!preview) {
+          return reply.status(404).send({ error: 'Preview not available' });
+        }
+
+        return reply.send(preview);
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to get preview',
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  /**
    * GET /api/documents - List documents with filtering
    */
   fastify.get<{ Querystring: ListDocumentsQuery }>(
     '/api/documents',
+    { preHandler: fastify.authenticate },
     async (request: FastifyRequest<{ Querystring: ListDocumentsQuery }>, reply: FastifyReply) => {
       try {
         const query = ListDocumentsQuerySchema.parse(request.query);
@@ -131,6 +349,7 @@ export async function documentRoutes(fastify: FastifyInstance) {
    */
   fastify.get<{ Params: { id: string } }>(
     '/api/documents/:id',
+    { preHandler: fastify.authenticate },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
       try {
         const document = await prisma.document.findUnique({
@@ -150,7 +369,7 @@ export async function documentRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * GET /api/documents/:id/content - Stream document content with Range support
+   * GET /api/documents/:id/content - Stream document content
    */
   fastify.get<{ Params: { id: string } }>(
     '/api/documents/:id/content',
@@ -234,6 +453,7 @@ export async function documentRoutes(fastify: FastifyInstance) {
    */
   fastify.delete<{ Params: { id: string } }>(
     '/api/documents/:id',
+    { preHandler: fastify.authenticate },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
       try {
         const document = await prisma.document.findUnique({

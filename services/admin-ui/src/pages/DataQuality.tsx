@@ -52,7 +52,7 @@ export default function DataQuality() {
     setError(null)
 
     try {
-      const response = await fetch('http://localhost:3000/api/admin/validation/comprehensive')
+      const response = await fetch('http://localhost:3005/api/admin/validation/comprehensive')
       const data = await response.json()
 
       if (!response.ok) {

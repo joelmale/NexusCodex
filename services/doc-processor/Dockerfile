@@ -1,18 +1,23 @@
-FROM node:20-alpine AS base
+FROM node:22-bookworm-slim AS base
 
 # Install build dependencies for native modules (canvas, sharp) and OpenSSL for Prisma
-RUN apk add --no-cache \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    giflib-dev \
-    pixman-dev \
-    pangomm-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    build-base \
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    build-essential \
     python3 \
-    openssl
+    pkg-config \
+    libc6-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libgif-dev \
+    libpango1.0-dev \
+    libcairo2-dev \
+    libpixman-1-dev \
+    libpangomm-1.4-dev \
+    libfreetype6-dev \
+    libssl-dev \
+    git && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install dependencies only when needed
 FROM base AS deps

@@ -3,7 +3,7 @@
 A production-ready microservices platform for managing, processing, and collaborating on TTRPG documents. Built for the Nexus Virtual Tabletop, NexusCodex provides intelligent document management with real-time collaboration, full-text search, OCR, and automated extraction of game content.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20-green.svg)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-22-green.svg)](https://nodejs.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -14,6 +14,7 @@ A production-ready microservices platform for managing, processing, and collabor
 - [Features](#features)
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
+- [Documentation](#documentation)
 - [API Documentation](#api-documentation)
 - [WebSocket Events](#websocket-events)
 - [Development](#development)
@@ -61,11 +62,23 @@ A production-ready microservices platform for managing, processing, and collabor
 - **Color Coding**: Organize with customizable colors
 - **Linked References**: Connect annotations to bookmarks for context
 
+### 🎛️ Admin Dashboard
+- **System Health Monitoring**: Real-time monitoring of all microservices with performance metrics
+- **Document Management**: Advanced filtering, bulk operations, validation, and cleanup tools
+- **Queue Management**: Monitor processing jobs, view logs, retry failures, and clean old jobs
+- **Search & Deduplication**: Advanced multi-field search and intelligent duplicate detection with merge capabilities
+- **Data Quality Tools**: Automated validation, issue detection, and auto-fix functionality
+- **Tag Management**: Tag metadata, usage analytics, merging, and cleanup
+- **User Management**: Full CRUD operations for user accounts with role-based access control
+- **ElasticSearch Management**: Index health monitoring, reindexing, optimization, and maintenance
+- **Performance Analytics**: Historical metrics, aggregated summaries, and trend analysis over time periods
+- **Alert System**: Configurable alerts for service health, performance thresholds, and resource usage
+
 ---
 
 ## Architecture
 
-NexusCodex is built as a distributed microservices architecture with three core services:
+NexusCodex is built as a distributed microservices architecture with four microservices:
 
 ```
 ┌─────────────┐
@@ -123,6 +136,15 @@ NexusCodex is built as a distributed microservices architecture with three core 
 - Heartbeat monitoring
 - DM control features
 
+**admin-ui** (Admin Dashboard)
+- React + Vite web application
+- System health monitoring and performance analytics
+- Document management and validation tools
+- Queue monitoring and job management
+- Search, deduplication, and data quality tools
+- User management and authentication
+- Bulk upload and ElasticSearch index management
+
 ### Data Stores
 
 - **PostgreSQL**: Document metadata, references, annotations, structured data
@@ -138,7 +160,7 @@ NexusCodex is built as a distributed microservices architecture with three core 
 
 - [Docker](https://www.docker.com/get-started) 20.10+
 - [Docker Compose](https://docs.docker.com/compose/) 2.0+
-- [Node.js](https://nodejs.org/) 20+ (for local development)
+- [Node.js](https://nodejs.org/) 22+ (for local development - required by Vite 7.x)
 
 ### Start the Stack
 
@@ -157,9 +179,11 @@ docker compose up -d
 
 **Service URLs:**
 - REST API: http://localhost:3000
+- Admin Dashboard: http://localhost:3001
 - WebSocket: ws://localhost:3002/ws
 - MinIO Console: http://localhost:9001 (login: admin/password)
 - ElasticSearch: http://localhost:9200
+- **📚 Documentation**: http://localhost:3003 (run `./scripts/docs.sh`)
 
 ### Upload Your First Document
 
@@ -200,6 +224,52 @@ curl "http://localhost:3000/api/search/quick?term=fireball&type=spell"
 # Search with filters
 curl "http://localhost:3000/api/search?query=combat&type=rulebook&campaigns=my-campaign"
 ```
+
+---
+
+## Documentation
+
+NexusCodex includes comprehensive developer documentation built with Docusaurus.
+
+### View Documentation
+
+```bash
+# Start the documentation website
+./scripts/docs.sh
+
+# Or manually
+cd docs && npm install && npm start
+```
+
+The documentation site will be available at: http://localhost:3003
+
+### Documentation Contents
+
+- **🏗️ Architecture Overview** - System design, data flow, and service interactions
+- **📁 Directory Structure** - Codebase organization and file layout
+- **🔌 API Reference** - Complete REST API documentation with examples
+- **🌐 WebSocket Events** - Real-time communication protocols
+- **🗄️ Database Schema** - Data models and relationships
+- **⚙️ Configuration** - Environment variables and settings
+- **🚀 Deployment Guide** - Production deployment instructions
+- **🛠️ Development Setup** - Local development environment
+
+### Building Documentation
+
+```bash
+cd docs
+
+# Install dependencies
+npm install
+
+# Build for production
+npm run build
+
+# Serve built documentation
+npm run serve
+```
+
+The built documentation can be deployed to any static hosting service (Netlify, Vercel, GitHub Pages, etc.).
 
 ---
 
@@ -335,6 +405,136 @@ curl "http://localhost:3000/api/search/quick?term=fireball&type=spell"
   ]
 }
 ```
+
+---
+
+## Admin API Endpoints
+
+The admin dashboard (http://localhost:3001) provides a comprehensive interface for system management. All admin endpoints require authentication with an admin role.
+
+### Authentication
+
+**Login:**
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "your-password"}'
+```
+
+**Response:**
+```json
+{
+  "user": {
+    "id": "user-123",
+    "username": "admin",
+    "email": "admin@example.com",
+    "role": "admin"
+  },
+  "tokens": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+Use the `accessToken` in the Authorization header for all admin requests:
+```bash
+curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://localhost:3000/api/admin/...
+```
+
+### Admin Document Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/documents` | List all documents with advanced filtering |
+| `GET` | `/api/admin/stats` | System statistics (total docs, storage, queue stats) |
+| `PATCH` | `/api/admin/documents/:id` | Update document metadata |
+| `DELETE` | `/api/admin/documents/:id` | Delete document with full cleanup |
+| `POST` | `/api/admin/documents/:id/reprocess` | Retry failed document processing |
+| `POST` | `/api/admin/documents/bulk-update` | Update multiple documents |
+| `POST` | `/api/admin/documents/bulk-delete` | Delete multiple documents |
+
+### Admin Queue Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/queue/stats` | Job queue statistics |
+| `GET` | `/api/admin/queue/jobs` | List jobs with filters |
+| `POST` | `/api/admin/queue/jobs/:id/retry` | Retry failed job |
+| `DELETE` | `/api/admin/queue/jobs/:id` | Remove job from queue |
+| `POST` | `/api/admin/queue/clean` | Clean old completed/failed jobs |
+| `GET` | `/api/admin/queue/jobs/:id/logs` | Get processing logs for a job |
+
+### Admin Search & Deduplication
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/admin/search/advanced` | Multi-field search with faceted filtering |
+| `GET` | `/api/admin/search/similar/:id` | Find similar documents |
+| `GET` | `/api/admin/search/facets` | Get available filter options |
+| `GET` | `/api/admin/duplicates` | List potential duplicate documents |
+| `POST` | `/api/admin/duplicates/merge` | Merge duplicate documents |
+| `GET` | `/api/admin/duplicates/stats` | Duplicate statistics |
+
+### Admin Tag Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/tags` | List all tags with usage statistics |
+| `POST` | `/api/admin/tags` | Create tag metadata |
+| `PATCH` | `/api/admin/tags/:id` | Update tag metadata |
+| `DELETE` | `/api/admin/tags/:id` | Delete tag |
+| `POST` | `/api/admin/tags/merge` | Merge multiple tags |
+| `GET` | `/api/admin/tags/unused` | Get unused tags |
+
+### Admin Validation & Data Quality
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/validation/orphaned` | Find documents with missing S3 files |
+| `GET` | `/api/admin/validation/metadata` | Find metadata inconsistencies |
+| `GET` | `/api/admin/validation/elastic` | Find ElasticSearch inconsistencies |
+| `GET` | `/api/admin/validation/issues` | Find all data quality issues |
+| `POST` | `/api/admin/validation/fix` | Auto-fix common issues |
+| `GET` | `/api/admin/validation/health` | Overall system health score |
+
+### Admin Health Monitoring
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/health` | Comprehensive system health status |
+| `GET` | `/api/admin/health/services/:service` | Health of specific service |
+| `GET` | `/api/admin/health/check` | Simple health check for monitoring |
+| `GET` | `/api/admin/metrics` | Current performance metrics |
+| `GET` | `/api/admin/metrics/history` | Metrics history with time range |
+| `GET` | `/api/admin/metrics/summary/:period` | Metrics summary (1h, 24h, 7d, 30d) |
+| `GET` | `/api/admin/metrics/recent` | Recent metrics |
+| `GET` | `/api/admin/alerts` | Active system alerts |
+| `GET` | `/api/admin/alerts/history` | Alert history |
+| `POST` | `/api/admin/alerts/:id/acknowledge` | Acknowledge an alert |
+| `POST` | `/api/admin/alerts/:id/resolve` | Resolve an alert |
+| `GET` | `/api/admin/alerts/rules` | Get alert rules configuration |
+| `PUT` | `/api/admin/alerts/rules` | Update alert rules |
+
+### Admin User Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/users` | List all users |
+| `POST` | `/api/admin/users` | Create new user |
+| `GET` | `/api/admin/users/:id` | Get user details |
+| `PATCH` | `/api/admin/users/:id` | Update user |
+| `DELETE` | `/api/admin/users/:id` | Delete user |
+
+### Admin ElasticSearch Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/elasticsearch/health` | ElasticSearch cluster health |
+| `POST` | `/api/admin/elasticsearch/reindex` | Reindex all documents |
+| `POST` | `/api/admin/elasticsearch/recreate` | Recreate index with new mapping |
+| `POST` | `/api/admin/elasticsearch/optimize` | Optimize index performance |
+| `DELETE` | `/api/admin/elasticsearch/clear` | Clear all indexed documents |
 
 ---
 
@@ -745,7 +945,7 @@ NexusCodex/
 ## Tech Stack
 
 **Backend:**
-- Node.js 20 + TypeScript 5.3
+- Node.js 22 + TypeScript 5.3
 - Fastify 4 (REST API)
 - Express + ws (WebSocket)
 - Prisma ORM (PostgreSQL)
@@ -828,4 +1028,4 @@ Special thanks to:
 
 **Status**: Production Ready ✅
 
-All planned phases (1-5) are complete. The system is ready for integration with VTT frontends.
+All planned phases (1-7) are complete, including comprehensive admin interface with health monitoring and performance analytics. The system is ready for integration with VTT frontends.

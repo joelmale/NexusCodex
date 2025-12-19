@@ -57,6 +57,12 @@ export const ListDocumentsQuerySchema = z.object({
   search: z.string().optional(),
 });
 
+export const BulkCreateDocumentSchema = z.object({
+  documents: z.array(CreateDocumentSchema),
+  batchId: z.string().optional(), // For tracking bulk operations
+});
+
 export type CreateDocumentInput = z.infer<typeof CreateDocumentSchema>;
 export type UpdateDocumentInput = z.infer<typeof UpdateDocumentSchema>;
 export type ListDocumentsQuery = z.infer<typeof ListDocumentsQuerySchema>;
+export type BulkCreateDocumentInput = z.infer<typeof BulkCreateDocumentSchema>;

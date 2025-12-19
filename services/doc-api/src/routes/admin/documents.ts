@@ -17,6 +17,7 @@ export async function adminDocumentRoutes(fastify: FastifyInstance) {
    */
   fastify.get<{ Querystring: AdminListDocumentsQuery }>(
     '/api/admin/documents',
+    { preHandler: fastify.requireAdmin },
     async (request: FastifyRequest<{ Querystring: AdminListDocumentsQuery }>, reply: FastifyReply) => {
       try {
         const query = AdminListDocumentsQuerySchema.parse(request.query);
@@ -415,7 +416,7 @@ export async function adminDocumentRoutes(fastify: FastifyInstance) {
           }
 
           // Check if failed documents have error metadata
-          if (doc.ocrStatus === 'failed' && (!doc.metadata || !doc.metadata.error)) {
+          if (doc.ocrStatus === 'failed' && (!doc.metadata || typeof doc.metadata !== 'object' || !('error' in doc.metadata))) {
             issues.push('Failed document missing error details');
           }
 
@@ -489,12 +490,12 @@ export async function adminDocumentRoutes(fastify: FastifyInstance) {
                 });
               }
             }
-          } catch (error) {
+          } catch (error: any) {
             elasticIssues.push({
               id: doc.id,
               title: doc.title,
               issue: 'Failed to validate ElasticSearch entry',
-              error: error.message,
+              error: error.message || 'Unknown error',
             });
           }
         }
@@ -546,6 +547,211 @@ export async function adminDocumentRoutes(fastify: FastifyInstance) {
         fastify.log.error(error);
         return reply.status(500).send({
           error: 'Failed to run comprehensive validation',
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /api/admin/documents/bulk-update - Update multiple documents
+   */
+  fastify.post<{ Body: { documentIds: string[]; updates: any } }>(
+    '/api/admin/documents/bulk-update',
+    async (request: FastifyRequest<{ Body: { documentIds: string[]; updates: any } }>, reply: FastifyReply) => {
+      try {
+        const { documentIds, updates } = request.body;
+
+        if (!documentIds || documentIds.length === 0) {
+          return reply.status(400).send({ error: 'No document IDs provided' });
+        }
+
+        if (!updates || Object.keys(updates).length === 0) {
+          return reply.status(400).send({ error: 'No updates provided' });
+        }
+
+        // Validate updates structure
+        const allowedFields = ['title', 'description', 'type', 'tags', 'campaigns', 'collections', 'addTags', 'removeTags', 'addCampaigns', 'removeCampaigns', 'addCollections', 'removeCollections', 'setCampaign'];
+        const updateFields = Object.keys(updates);
+        const invalidFields = updateFields.filter(f => !allowedFields.includes(f));
+
+        if (invalidFields.length > 0) {
+          return reply.status(400).send({
+            error: 'Invalid update fields',
+            details: `Invalid fields: ${invalidFields.join(', ')}`,
+          });
+        }
+
+        // Process each document
+        const results = {
+          updated: [] as string[],
+          failed: [] as { id: string; error: string }[],
+        };
+
+        for (const documentId of documentIds) {
+          try {
+            // Get current document
+            const currentDoc = await prisma.document.findUnique({
+              where: { id: documentId },
+            });
+
+            if (!currentDoc) {
+              results.failed.push({ id: documentId, error: 'Document not found' });
+              continue;
+            }
+
+            // Build update data
+            const updateData: any = {};
+
+            // Direct field updates
+            if (updates.title) updateData.title = updates.title;
+            if (updates.description) updateData.description = updates.description;
+            if (updates.type) updateData.type = updates.type;
+
+            // Array replacements
+            if (updates.tags) updateData.tags = updates.tags;
+            if (updates.campaigns) updateData.campaigns = updates.campaigns;
+            if (updates.collections) updateData.collections = updates.collections;
+
+            // Array additions
+            if (updates.addTags) {
+              updateData.tags = Array.from(new Set([...currentDoc.tags, ...updates.addTags]));
+            }
+            if (updates.addCampaigns) {
+              updateData.campaigns = Array.from(new Set([...currentDoc.campaigns, ...updates.addCampaigns]));
+            }
+            if (updates.addCollections) {
+              updateData.collections = Array.from(new Set([...currentDoc.collections, ...updates.addCollections]));
+            }
+
+            // Array removals
+            if (updates.removeTags) {
+              updateData.tags = currentDoc.tags.filter(t => !updates.removeTags.includes(t));
+            }
+            if (updates.removeCampaigns) {
+              updateData.campaigns = currentDoc.campaigns.filter(c => !updates.removeCampaigns.includes(c));
+            }
+            if (updates.removeCollections) {
+              updateData.collections = currentDoc.collections.filter(c => !updates.removeCollections.includes(c));
+            }
+
+            // Set single campaign
+            if (updates.setCampaign) {
+              updateData.campaigns = [updates.setCampaign];
+            }
+
+            // Update document
+            await prisma.document.update({
+              where: { id: documentId },
+              data: updateData,
+            });
+
+            results.updated.push(documentId);
+          } catch (error: any) {
+            results.failed.push({
+              id: documentId,
+              error: error.message,
+            });
+          }
+        }
+
+        return reply.send({
+          message: 'Bulk update completed',
+          results: {
+            total: documentIds.length,
+            updated: results.updated.length,
+            failed: results.failed.length,
+          },
+          updated: results.updated,
+          failed: results.failed,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(400).send({
+          error: 'Failed to perform bulk update',
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /api/admin/documents/bulk-delete - Delete multiple documents
+   */
+  fastify.post<{ Body: { documentIds: string[] } }>(
+    '/api/admin/documents/bulk-delete',
+    async (request: FastifyRequest<{ Body: { documentIds: string[] } }>, reply: FastifyReply) => {
+      try {
+        const { documentIds } = request.body;
+
+        if (!documentIds || documentIds.length === 0) {
+          return reply.status(400).send({ error: 'No document IDs provided' });
+        }
+
+        const results = {
+          deleted: [] as string[],
+          failed: [] as { id: string; error: string }[],
+        };
+
+        for (const documentId of documentIds) {
+          try {
+            // Get document
+            const document = await prisma.document.findUnique({
+              where: { id: documentId },
+            });
+
+            if (!document) {
+              results.failed.push({ id: documentId, error: 'Document not found' });
+              continue;
+            }
+
+            // Delete from ElasticSearch if indexed
+            if (document.searchIndex) {
+              try {
+                await elasticService.deleteDocument(document.searchIndex);
+              } catch (error) {
+                fastify.log.warn(`Failed to delete from ElasticSearch: ${error}`);
+              }
+            }
+
+            // Delete from S3
+            try {
+              await s3Service.deleteObject(document.storageKey);
+              if (document.thumbnailKey) {
+                await s3Service.deleteObject(document.thumbnailKey);
+              }
+            } catch (error) {
+              fastify.log.warn(`Failed to delete from S3: ${error}`);
+            }
+
+            // Delete from database (cascade deletes references and annotations)
+            await prisma.document.delete({
+              where: { id: documentId },
+            });
+
+            results.deleted.push(documentId);
+          } catch (error: any) {
+            results.failed.push({
+              id: documentId,
+              error: error.message,
+            });
+          }
+        }
+
+        return reply.send({
+          message: 'Bulk delete completed',
+          results: {
+            total: documentIds.length,
+            deleted: results.deleted.length,
+            failed: results.failed.length,
+          },
+          deleted: results.deleted,
+          failed: results.failed,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(400).send({
+          error: 'Failed to perform bulk delete',
           details: error.message,
         });
       }

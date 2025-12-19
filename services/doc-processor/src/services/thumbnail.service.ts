@@ -1,11 +1,11 @@
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createCanvas } from 'canvas';
 import sharp from 'sharp';
 import { env } from '../config/env';
 
 // Configure PDF.js worker
 // @ts-ignore
-pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.js');
+pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
 
 class ThumbnailService {
   /**
@@ -14,7 +14,9 @@ class ThumbnailService {
   async generateThumbnail(pdfBuffer: Buffer): Promise<Buffer> {
     try {
       // Load PDF document
-      const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
+      // Convert Buffer to Uint8Array for Node.js 22 compatibility
+      const uint8Array = new Uint8Array(pdfBuffer);
+      const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
       const pdfDocument = await loadingTask.promise;
 
       // Get first page
@@ -30,6 +32,7 @@ class ThumbnailService {
       const context = canvas.getContext('2d');
 
       // Render PDF page to canvas
+      // @ts-ignore
       await page.render({
         canvasContext: context as any,
         viewport: scaledViewport,

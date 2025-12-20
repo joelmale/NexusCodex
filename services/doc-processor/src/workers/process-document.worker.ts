@@ -131,7 +131,14 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
       console.log(`[Worker] Rendering page images`);
       await loggingService.logInfo(jobId, 'Rendering page images', undefined, { canvasBackend });
       try {
-        const pageImages = await pageImageService.renderPageImages(fileBuffer, { includeOcrBuffer: needsOCR });
+        const pageImages = await pageImageService.renderPageImages(fileBuffer, {
+          includeOcrBuffer: needsOCR,
+          onProgress: ({ pageNumber, maxPages }) => {
+            if (pageNumber % 10 === 0 || pageNumber === maxPages) {
+              loggingService.logInfo(jobId, `Rendered ${pageNumber}/${maxPages} pages`, 'page_images').catch(() => {});
+            }
+          },
+        });
         for (const image of pageImages) {
           const pageKey = `page-images/${documentId}/page-${image.pageNumber}.webp`;
           pageImagesTotalBytes += image.buffer.length;

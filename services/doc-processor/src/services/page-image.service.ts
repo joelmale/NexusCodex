@@ -13,13 +13,19 @@ export interface RenderedPageImage {
   ocrBuffer?: Buffer;
 }
 
+interface PageImageRenderProgress {
+  pageNumber: number;
+  totalPages: number;
+  maxPages: number;
+}
+
 class PageImageService {
   /**
    * Render PDF pages to WebP buffers for reader consumption
    */
   async renderPageImages(
     pdfBuffer: Buffer,
-    options: { includeOcrBuffer?: boolean } = {}
+    options: { includeOcrBuffer?: boolean; onProgress?: (progress: PageImageRenderProgress) => void } = {}
   ): Promise<RenderedPageImage[]> {
     const images: RenderedPageImage[] = [];
 
@@ -62,6 +68,14 @@ class PageImageService {
           buffer: webpBuffer,
           ocrBuffer: options.includeOcrBuffer ? pngBuffer : undefined,
         });
+
+        if (options.onProgress) {
+          options.onProgress({
+            pageNumber,
+            totalPages,
+            maxPages,
+          });
+        }
       }
 
       return images;

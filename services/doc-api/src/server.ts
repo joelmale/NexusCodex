@@ -52,6 +52,9 @@ fastify.register(jwt, {
 
 // Authentication decorator
 fastify.decorate('authenticate', async (request: any, reply: any) => {
+  if (env.AUTH_DISABLED) {
+    return;
+  }
   try {
     await request.jwtVerify();
   } catch (err) {

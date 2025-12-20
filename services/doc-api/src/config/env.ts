@@ -38,6 +38,9 @@ const envSchema = z.object({
   LOGGING_ENABLED: z.string().default('true').transform(val => val === 'true'),
   LOGGING_INDEX: z.string().default('nexus-logs'),
   LOGGING_SERVICE_NAME: z.string().default('doc-api'),
+
+  // Auth
+  AUTH_DISABLED: z.string().default('false').transform(val => val === 'true'),
 });
 
 export const env = envSchema.parse(process.env);

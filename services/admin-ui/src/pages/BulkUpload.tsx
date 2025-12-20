@@ -170,6 +170,9 @@ export default function BulkUpload() {
                   'Content-Type': fileData.file.type || 'application/octet-stream',
                 },
               });
+              await fetch(`/api/documents/${item.document.id}/process`, {
+                method: 'POST',
+              });
             } catch (error) {
               console.error('Upload failed:', error);
             }

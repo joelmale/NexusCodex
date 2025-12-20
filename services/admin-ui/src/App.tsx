@@ -9,6 +9,8 @@ import DataQuality from './pages/DataQuality'
 import BulkUpload from './pages/BulkUpload'
 import ElasticSearch from './pages/ElasticSearch'
 import Health from './pages/Health'
+import Reader from './pages/Reader'
+import Logs from './pages/Logs'
 import Layout from './components/Layout'
 
 const queryClient = new QueryClient()
@@ -28,6 +30,8 @@ function App() {
             <Route path="/bulk-upload" element={<BulkUpload />} />
             <Route path="/elasticsearch" element={<ElasticSearch />} />
             <Route path="/health" element={<Health />} />
+            <Route path="/logs" element={<Logs />} />
+            <Route path="/reader/:id" element={<Reader />} />
           </Routes>
         </Layout>
       </Router>

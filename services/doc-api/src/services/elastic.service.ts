@@ -31,6 +31,76 @@ class ElasticSearchService {
   }
 
   /**
+   * Check if a document exists in the index
+   */
+  async documentExists(documentId: string): Promise<boolean> {
+    try {
+      const response: any = await this.client.exists({
+        index: this.index,
+        id: documentId,
+      });
+      if (typeof response === 'boolean') return response;
+      if (typeof response?.body === 'boolean') return response.body;
+      return false;
+    } catch (error: any) {
+      throw new Error(`Document existence check failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Search within a specific document
+   */
+  async searchWithinDocument(params: { documentId: string; query: string; size?: number }) {
+    const { documentId, query, size = 5 } = params;
+
+    try {
+      const response = await this.client.search({
+        index: this.index,
+        size,
+        body: {
+          query: {
+            bool: {
+              must: [
+                {
+                  multi_match: {
+                    query,
+                    fields: ['title^3', 'description^2', 'content'],
+                    type: 'best_fields',
+                    fuzziness: 'AUTO',
+                  },
+                },
+              ],
+              filter: [{ term: { documentId } }],
+            },
+          },
+          highlight: {
+            fields: {
+              title: {},
+              description: {},
+              content: {
+                fragment_size: 150,
+                number_of_fragments: 3,
+              },
+            },
+          },
+        },
+      });
+
+      return {
+        total: typeof response.hits.total === 'object' ? response.hits.total.value : response.hits.total,
+        hits: response.hits.hits.map((hit: any) => ({
+          documentId: hit._id,
+          score: hit._score,
+          source: hit._source,
+          highlights: hit.highlight,
+        })),
+      };
+    } catch (error: any) {
+      throw new Error(`Document search failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Advanced search with enhanced filtering and sorting
    */
   async advancedSearch(params: {

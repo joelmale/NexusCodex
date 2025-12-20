@@ -65,6 +65,12 @@ enum StructuredDataType {
   other
 }
 
+enum DocumentTextSource {
+  pdf_extraction
+  ocr
+  markdown
+}
+
 enum UserRole {
   admin
   user
@@ -108,6 +114,7 @@ model Document {
   references      DocumentReference[]
   annotations     DocumentAnnotation[]
   structuredData  StructuredData[]
+  textEntries     DocumentText[]
   uploader        User?               @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
 
   @@index([uploadedBy])
@@ -116,6 +123,21 @@ model Document {
   @@index([tags])
   @@index([contentHash])
   @@map("documents")
+}
+
+model DocumentText {
+  id         String              @id @default(uuid())
+  documentId String
+  source     DocumentTextSource
+  content    String
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  document   Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, source])
+  @@index([source])
+  @@map("document_texts")
 }
 
 model DocumentReference {

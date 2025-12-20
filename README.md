@@ -68,6 +68,7 @@ A production-ready microservices platform for managing, processing, and collabor
 - **Queue Management**: Monitor processing jobs, view logs, retry failures, and clean old jobs
 - **Search & Deduplication**: Advanced multi-field search and intelligent duplicate detection with merge capabilities
 - **Data Quality Tools**: Automated validation, issue detection, and auto-fix functionality
+- **Processing Quality**: OCR/readability signals, text extraction coverage, and searchability checks
 - **Tag Management**: Tag metadata, usage analytics, merging, and cleanup
 - **User Management**: Full CRUD operations for user accounts with role-based access control
 - **ElasticSearch Management**: Index health monitoring, reindexing, optimization, and maintenance
@@ -498,6 +499,15 @@ curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://localhost:3000/api/admi
 | `POST` | `/api/admin/validation/fix` | Auto-fix common issues |
 | `GET` | `/api/admin/validation/health` | Overall system health score |
 
+### Admin Processing Quality
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/processing/summary` | Processing quality summary (text coverage, OCR, indexing) |
+| `GET` | `/api/admin/processing/issues` | List processing quality issues |
+| `GET` | `/api/admin/processing/report/:id` | Per-document processing report |
+| `GET` | `/api/admin/processing/search-check/:id?q=...` | Searchability probe for a document |
+
 ### Admin Health Monitoring
 
 | Method | Endpoint | Description |
@@ -841,6 +851,12 @@ See [TESTING.md](TESTING.md) for comprehensive manual testing guides including:
 - Search functionality testing
 - WebSocket connection testing
 - Performance testing strategies
+
+Quick searchability probe (admin API):
+
+```bash
+./scripts/check-searchability.sh <document-id> <query>
+```
 
 ---
 

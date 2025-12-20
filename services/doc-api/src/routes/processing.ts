@@ -72,6 +72,7 @@ export async function processingRoutes(fastify: FastifyInstance) {
             pageCount: true,
             thumbnailKey: true,
             searchIndex: true,
+            metadata: true,
           },
         });
 
@@ -86,6 +87,7 @@ export async function processingRoutes(fastify: FastifyInstance) {
           pageCount: document.pageCount,
           hasThumbnail: !!document.thumbnailKey,
           isIndexed: !!document.searchIndex,
+          processing: (document.metadata as any)?.processing || {},
         });
       } catch (error: any) {
         fastify.log.error(error);

@@ -47,6 +47,12 @@ enum StructuredDataType {
   other
 }
 
+enum DocumentTextSource {
+  pdf_extraction
+  ocr
+  markdown
+}
+
 model Document {
   id          String   @id @default(uuid())
   title       String
@@ -84,12 +90,28 @@ model Document {
   references      DocumentReference[]
   annotations     DocumentAnnotation[]
   structuredData  StructuredData[]
+  textEntries     DocumentText[]
 
   @@index([uploadedBy])
   @@index([type])
   @@index([campaigns])
   @@index([tags])
   @@map("documents")
+}
+
+model DocumentText {
+  id         String              @id @default(uuid())
+  documentId String
+  source     DocumentTextSource
+  content    String
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  document   Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, source])
+  @@index([source])
+  @@map("document_texts")
 }
 
 model DocumentReference {

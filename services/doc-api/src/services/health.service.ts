@@ -2,6 +2,7 @@ import { Client as ElasticClient } from '@elastic/elasticsearch';
 import { env } from '../config/env';
 import { MetricsService } from './metrics.service';
 import { AlertsService } from './alerts.service';
+import { buildProcessingSummary, ProcessingDocumentSnapshot } from './processing-quality.service';
 
 export interface ServiceHealth {
   name: string;
@@ -72,6 +73,7 @@ export class HealthService {
       this.checkDatabaseHealth(),
       this.checkRedisHealth(),
       this.checkElasticSearchHealth(),
+      this.checkProcessingQualityHealth(),
       this.checkStorageHealth(),
     ]);
 
@@ -84,6 +86,7 @@ export class HealthService {
         'database',
         'redis',
         'elasticsearch',
+        'processing-quality',
         'storage'
       ];
 
@@ -398,6 +401,55 @@ export class HealthService {
       return {
         name: 'elasticsearch',
         status: 'unhealthy',
+        responseTime: Date.now() - startTime,
+        lastChecked: new Date(),
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Check processing quality health
+   */
+  private static async checkProcessingQualityHealth(): Promise<ServiceHealth> {
+    const startTime = Date.now();
+    try {
+      const { prisma } = await import('../services/database.service');
+
+      const documents = await prisma.document.findMany({
+        select: {
+          id: true,
+          title: true,
+          ocrStatus: true,
+          searchIndex: true,
+          pageCount: true,
+          metadata: true,
+        },
+      });
+
+      const summary = buildProcessingSummary(documents as ProcessingDocumentSnapshot[]);
+      const total = summary.totalDocuments || 1;
+      const noTextRatio = summary.noText / total;
+      const lowTextRatio = summary.lowText / total;
+
+      let status: ServiceHealth['status'] = 'healthy';
+      if (summary.failed > 0 || noTextRatio > 0.25) {
+        status = 'unhealthy';
+      } else if (summary.ocrPending > 0 || lowTextRatio > 0.25) {
+        status = 'degraded';
+      }
+
+      return {
+        name: 'processing-quality',
+        status,
+        responseTime: Date.now() - startTime,
+        lastChecked: new Date(),
+        details: summary,
+      };
+    } catch (error: any) {
+      return {
+        name: 'processing-quality',
+        status: 'unknown',
         responseTime: Date.now() - startTime,
         lastChecked: new Date(),
         error: error.message,

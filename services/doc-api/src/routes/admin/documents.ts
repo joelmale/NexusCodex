@@ -87,6 +87,7 @@ export async function adminDocumentRoutes(fastify: FastifyInstance) {
               ocrStatus: true,
               searchIndex: true,
               thumbnailKey: true,
+              metadata: true,
             },
           }),
           prisma.document.count({ where }),
@@ -103,10 +104,25 @@ export async function adminDocumentRoutes(fastify: FastifyInstance) {
             status = 'indexed';
           }
 
+          const processing = (doc.metadata as any)?.processing || {};
+          const textLength = Number(processing.textLength || 0);
+          const { metadata: _metadata, ...docData } = doc as any;
+
           return {
-            ...doc,
+            ...docData,
             status,
             thumbnailKey: doc.thumbnailKey,
+            processingSummary: {
+              textLength,
+              textSample: processing.textSample,
+              textCharsPerPage: processing.textCharsPerPage,
+              ocrDetected: processing.ocr?.detected || false,
+              ocrPerformed: processing.ocr?.performed || false,
+              ocrStatus: doc.ocrStatus,
+              isIndexed: !!doc.searchIndex,
+              pageImagesCount: processing.pageImages?.count || 0,
+              pageImagesTotalBytes: processing.pageImages?.totalBytes || 0,
+            },
           };
         });
 

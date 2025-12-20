@@ -1,5 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { createCanvas } from 'canvas';
+import { createCanvas } from '../utils/canvas';
 import sharp from 'sharp';
 import { env } from '../config/env';
 
@@ -30,6 +30,9 @@ class ThumbnailService {
       // Create canvas
       const canvas = createCanvas(scaledViewport.width, scaledViewport.height);
       const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error('Canvas 2d context unavailable');
+      }
 
       // Render PDF page to canvas
       // @ts-ignore

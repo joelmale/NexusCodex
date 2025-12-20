@@ -22,7 +22,7 @@ import {
   BellOff
 } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3005';
+const API_BASE_URL = '';
 
 interface ServiceHealth {
   name: string;

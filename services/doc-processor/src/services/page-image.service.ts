@@ -1,5 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { createCanvas } from 'canvas';
+import { createCanvas } from '../utils/canvas';
 import sharp from 'sharp';
 import { env } from '../config/env';
 
@@ -10,13 +10,17 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/buil
 export interface RenderedPageImage {
   pageNumber: number;
   buffer: Buffer;
+  ocrBuffer?: Buffer;
 }
 
 class PageImageService {
   /**
    * Render PDF pages to WebP buffers for reader consumption
    */
-  async renderPageImages(pdfBuffer: Buffer): Promise<RenderedPageImage[]> {
+  async renderPageImages(
+    pdfBuffer: Buffer,
+    options: { includeOcrBuffer?: boolean } = {}
+  ): Promise<RenderedPageImage[]> {
     const images: RenderedPageImage[] = [];
 
     // Convert Buffer to Uint8Array for PDF.js
@@ -36,6 +40,9 @@ class PageImageService {
 
         const canvas = createCanvas(scaledViewport.width, scaledViewport.height);
         const context = canvas.getContext('2d');
+        if (!context) {
+          throw new Error('Canvas 2d context unavailable');
+        }
 
         // Render PDF page to canvas
         // @ts-ignore
@@ -50,7 +57,11 @@ class PageImageService {
           .webp({ quality: env.PAGE_IMAGE_QUALITY })
           .toBuffer();
 
-        images.push({ pageNumber, buffer: webpBuffer });
+        images.push({
+          pageNumber,
+          buffer: webpBuffer,
+          ocrBuffer: options.includeOcrBuffer ? pngBuffer : undefined,
+        });
       }
 
       return images;

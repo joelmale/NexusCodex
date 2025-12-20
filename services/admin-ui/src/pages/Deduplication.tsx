@@ -32,7 +32,7 @@ export default function Deduplication() {
     setError(null)
 
     try {
-      const response = await fetch('http://localhost:3005/api/deduplication/duplicates')
+      const response = await fetch('/api/deduplication/duplicates')
       const data = await response.json()
 
       if (!response.ok) {
@@ -52,7 +52,7 @@ export default function Deduplication() {
     setError(null)
 
     try {
-      const response = await fetch('http://localhost:3005/api/deduplication/merge', {
+      const response = await fetch('/api/deduplication/merge', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

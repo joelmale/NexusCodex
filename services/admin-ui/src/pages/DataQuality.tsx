@@ -5,6 +5,8 @@ import { Badge } from '../components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { AlertTriangle, CheckCircle, FileX, Database, Search } from 'lucide-react'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
 interface ValidationResult {
   orphanedFiles: {
     orphanedDocuments: Array<{
@@ -42,17 +44,78 @@ interface ValidationResult {
   }
 }
 
+interface ProcessingSummary {
+  totalDocuments: number
+  processed: number
+  processing: number
+  pending: number
+  failed: number
+  indexed: number
+  withText: number
+  noText: number
+  lowText: number
+  ocrPending: number
+  ocrFailed: number
+  lowTextThreshold: number
+  recentIssues: Array<{
+    id: string
+    title: string
+    issue: string
+    textLength: number
+  }>
+}
+
+interface ProcessingIssue {
+  id: string
+  documentId: string
+  title: string
+  type: string
+  severity: 'error' | 'warning'
+  description: string
+  textLength: number
+  ocrStatus: string
+  indexed: boolean
+}
+
+interface ProcessingIssuesResponse {
+  issues: ProcessingIssue[]
+  total: number
+  summary: {
+    errors: number
+    warnings: number
+  }
+  byType: Record<string, number>
+}
+
+interface SearchCheckResult {
+  documentId: string
+  query: string
+  total: number
+  hits: Array<{
+    documentId: string
+    score: number
+    source: Record<string, unknown>
+    highlights?: Record<string, string[]>
+  }>
+}
+
 export default function DataQuality() {
   const [validation, setValidation] = useState<ValidationResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [processingSummary, setProcessingSummary] = useState<ProcessingSummary | null>(null)
+  const [processingIssues, setProcessingIssues] = useState<ProcessingIssuesResponse | null>(null)
+  const [searchDocId, setSearchDocId] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResult, setSearchResult] = useState<SearchCheckResult | null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
 
   const runValidation = async () => {
     setLoading(true)
     setError(null)
 
     try {
-      const response = await fetch('http://localhost:3005/api/admin/validation/comprehensive')
+      const response = await fetch(`${API_BASE_URL}/api/admin/validation/comprehensive`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -60,6 +123,7 @@ export default function DataQuality() {
       }
 
       setValidation(data)
+      await Promise.all([loadProcessingSummary(), loadProcessingIssues()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -67,8 +131,36 @@ export default function DataQuality() {
     }
   }
 
+  const loadProcessingSummary = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/processing/summary`)
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Failed to load processing summary')
+      }
+      setProcessingSummary(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    }
+  }
+
+  const loadProcessingIssues = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/processing/issues`)
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Failed to load processing issues')
+      }
+      setProcessingIssues(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    }
+  }
+
   useEffect(() => {
     runValidation()
+    loadProcessingSummary()
+    loadProcessingIssues()
   }, [])
 
   const formatDate = (dateString: string) => {
@@ -85,6 +177,27 @@ export default function DataQuality() {
     if (count === 0) return <Badge variant="default" className="bg-green-100 text-green-800">Good</Badge>
     if (count < 5) return <Badge variant="default" className="bg-yellow-100 text-yellow-800">Warning</Badge>
     return <Badge variant="default" className="bg-red-100 text-red-800">Critical</Badge>
+  }
+
+  const handleSearchCheck = async () => {
+    if (!searchDocId || !searchQuery) return
+    setSearchLoading(true)
+    setSearchResult(null)
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/processing/search-check/${searchDocId}?q=${encodeURIComponent(searchQuery)}`
+      )
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Failed to run search check')
+      }
+      setSearchResult(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setSearchLoading(false)
+    }
   }
 
   return (
@@ -165,6 +278,71 @@ export default function DataQuality() {
         </div>
       )}
 
+      {/* Processing Quality Summary */}
+      {processingSummary && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Documents With Text</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {processingSummary.withText}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {processingSummary.noText} without extracted text
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Low Text Volume</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">
+                {processingSummary.lowText}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Under {processingSummary.lowTextThreshold} characters
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Indexed Documents</CardTitle>
+              <Search className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">
+                {processingSummary.indexed}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Searchable in ElasticSearch
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">OCR Pending</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {processingSummary.ocrPending}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                OCR not completed
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Error Display */}
       {error && (
         <Card className="border-red-200">
@@ -186,6 +364,99 @@ export default function DataQuality() {
           {loading ? 'Running Validation...' : 'Run Validation'}
         </Button>
       </div>
+
+      {/* Processing Issues */}
+      {processingIssues && processingIssues.total > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Processing Quality Issues ({processingIssues.total})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Document</TableHead>
+                  <TableHead>Issue</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Text Length</TableHead>
+                  <TableHead>Indexed</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {processingIssues.issues.map((issue) => (
+                  <TableRow key={issue.id}>
+                    <TableCell className="font-medium">{issue.title}</TableCell>
+                    <TableCell>{issue.description}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={issue.severity === 'error' ? 'text-red-600' : 'text-yellow-600'}>
+                        {issue.severity}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{issue.textLength}</TableCell>
+                    <TableCell>
+                      {issue.indexed ? (
+                        <Badge variant="outline" className="text-green-600">Yes</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-gray-600">No</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Searchability Probe */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="h-5 w-5 text-blue-500" />
+            Searchability Probe
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input
+              type="text"
+              placeholder="Document ID"
+              value={searchDocId}
+              onChange={(e) => setSearchDocId(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              placeholder="Query (e.g., fireball)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <Button onClick={handleSearchCheck} disabled={searchLoading || !searchDocId || !searchQuery}>
+              {searchLoading ? 'Checking...' : 'Run Check'}
+            </Button>
+          </div>
+
+          {searchResult && (
+            <div className="space-y-2">
+              <div className="text-sm text-gray-600">
+                Results: {searchResult.total} hits
+              </div>
+              {searchResult.hits.map((hit, index) => (
+                <div key={`${hit.documentId}-${index}`} className="border rounded-md p-3 text-sm">
+                  {hit.highlights?.content?.map((fragment, fragmentIndex) => (
+                    <div key={`${hit.documentId}-${fragmentIndex}`} dangerouslySetInnerHTML={{ __html: fragment }} />
+                  ))}
+                  {!hit.highlights?.content && <div>No highlighted snippet available.</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Orphaned Files */}
       {validation && validation.orphanedFiles.total > 0 && (

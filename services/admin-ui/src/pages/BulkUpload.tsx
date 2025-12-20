@@ -54,7 +54,7 @@ interface BulkStatus {
   }>;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3005';
+const API_BASE_URL = '';
 
 export default function BulkUpload() {
   const [files, setFiles] = useState<UploadFile[]>([]);

@@ -13,6 +13,14 @@ const envSchema = z.object({
   // Redis
   REDIS_URL: z.string(),
   SESSION_TTL: z.string().default('86400').transform(Number), // 24 hours in seconds
+
+  // ElasticSearch (logging)
+  ELASTICSEARCH_URL: z.string().default('http://localhost:9200'),
+
+  // Logging
+  LOGGING_ENABLED: z.string().default('true').transform(val => val === 'true'),
+  LOGGING_INDEX: z.string().default('nexus-logs'),
+  LOGGING_SERVICE_NAME: z.string().default('doc-websocket'),
 });
 
 export const env = envSchema.parse(process.env);

@@ -1,15 +1,28 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 
 interface Document {
   id: string
   title: string
   type: string
+  format: string
   status: string
   fileSize: number
   uploadedAt: string
   thumbnailKey?: string
   tags: string[]
+  processingSummary?: {
+    textLength: number
+    textCharsPerPage?: number
+    textSample?: string
+    ocrDetected?: boolean
+    ocrPerformed?: boolean
+    ocrStatus?: string
+    isIndexed?: boolean
+    pageImagesCount?: number
+    pageImagesTotalBytes?: number
+  }
 }
 
 interface DocumentsResponse {
@@ -23,6 +36,7 @@ interface DocumentsResponse {
 }
 
 export default function Documents() {
+  const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState<string>('')
   const [type, setType] = useState<string>('')
@@ -68,9 +82,61 @@ export default function Documents() {
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
   }
 
+  const formatTextLength = (length?: number) => {
+    if (!length) return 'none'
+    if (length < 1000) return `${length} chars`
+    return `${(length / 1000).toFixed(1)}k chars`
+  }
+
+  const getTextQualityBadge = (length?: number) => {
+    if (!length) {
+      return <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">no text</span>
+    }
+    if (length < 200) {
+      return <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">low text</span>
+    }
+    return <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">ok</span>
+  }
+
+  const getIndexBadge = (indexed?: boolean) => {
+    if (indexed) {
+      return <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">indexed</span>
+    }
+    return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">missing</span>
+  }
+
+  const getOcrBadge = (status?: string) => {
+    switch (status) {
+      case 'completed':
+        return <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">ocr ok</span>
+      case 'processing':
+        return <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">ocr running</span>
+      case 'pending':
+        return <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">ocr pending</span>
+      case 'failed':
+        return <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">ocr failed</span>
+      case 'not_required':
+        return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">ocr n/a</span>
+      default:
+        return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">ocr unknown</span>
+    }
+  }
+
+  const formatLabel = (format: string) => {
+    return format.toUpperCase()
+  }
+
   const handleView = (doc: Document) => {
     // Open document in new tab
     window.open(`/api/documents/${doc.id}/content`, '_blank')
+  }
+
+  const handleReader = (doc: Document) => {
+    window.open(`/reader/${doc.id}`, '_blank')
+  }
+
+  const handleUpload = () => {
+    navigate('/bulk-upload')
   }
 
   const handleEdit = (doc: Document) => {
@@ -133,7 +199,10 @@ export default function Documents() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Documents</h1>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button
+          onClick={handleUpload}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
           Upload Document
         </button>
       </div>
@@ -213,7 +282,13 @@ export default function Documents() {
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Size
+                        Formats & Size
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Text
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Search
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Uploaded
@@ -236,7 +311,39 @@ export default function Documents() {
                           {getStatusBadge(doc.status)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatFileSize(doc.fileSize)}
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                {formatLabel(doc.format)}
+                              </span>
+                              <span>{formatFileSize(doc.fileSize)}</span>
+                            </div>
+                            {doc.processingSummary?.pageImagesCount ? (
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  WEBP x{doc.processingSummary.pageImagesCount}
+                                </span>
+                                <span>
+                                  {formatFileSize(doc.processingSummary.pageImagesTotalBytes || 0)}
+                                  {doc.processingSummary?.pageImagesTotalBytes
+                                    ? ` (${Math.round((doc.processingSummary.pageImagesTotalBytes / doc.fileSize) * 100)}%)`
+                                    : ''}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="text-xs text-gray-400">No page images</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center gap-2">
+                            {getTextQualityBadge(doc.processingSummary?.textLength)}
+                            <span>{formatTextLength(doc.processingSummary?.textLength)}</span>
+                            {getOcrBadge(doc.processingSummary?.ocrStatus)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {getIndexBadge(doc.processingSummary?.isIndexed)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {new Date(doc.uploadedAt).toLocaleDateString()}
@@ -254,6 +361,13 @@ export default function Documents() {
                               className="text-green-600 hover:text-green-900"
                             >
                               View
+                            </button>
+                            <button
+                              onClick={() => handleReader(doc)}
+                              className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50"
+                              disabled={!doc.processingSummary?.pageImagesCount}
+                            >
+                              Reader
                             </button>
                             <button
                               onClick={() => handleReprocess(doc.id)}

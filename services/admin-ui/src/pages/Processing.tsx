@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 interface ProcessingLog {
   timestamp: string;
-  level: 'info' | 'warn' | 'error';
+  level: 'debug' | 'info' | 'warn' | 'error' | 'critical';
   message: string;
   step?: string;
   details?: Record<string, unknown>;
@@ -34,12 +34,49 @@ interface JobsResponse {
   total: number
 }
 
+interface ProcessingReport {
+  document: {
+    id: string
+    title: string
+    format: string
+    fileSize: number
+    pageCount: number
+    ocrStatus: string
+    searchIndex: string | null
+  }
+  processing: {
+    textLength?: number
+    textSample?: string
+    ocr?: {
+      detected?: boolean
+      performed?: boolean
+      status?: string
+      reason?: string
+    }
+    extraction?: {
+      spells?: number
+      monsters?: number
+      items?: number
+    }
+    search?: {
+      indexed?: boolean
+      indexId?: string
+      indexDurationMs?: number
+    }
+    pageImages?: {
+      count?: number
+      totalBytes?: number
+    }
+  }
+}
+
 export default function Processing() {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [cleanDays, setCleanDays] = useState(7)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [showErrorModal, setShowErrorModal] = useState(false)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
   const queryClient = useQueryClient()
 
   // Queue stats query
@@ -78,6 +115,17 @@ export default function Processing() {
       return response.json()
     },
     enabled: !!selectedJob?.id && showErrorModal,
+  })
+
+  const { data: reportData, isLoading: reportLoading } = useQuery<ProcessingReport>({
+    queryKey: ['processing-report', selectedJob?.documentId],
+    queryFn: async () => {
+      if (!selectedJob?.documentId) throw new Error('No document selected')
+      const response = await fetch(`/api/admin/processing/report/${selectedJob.documentId}`)
+      if (!response.ok) throw new Error('Failed to fetch processing report')
+      return response.json()
+    },
+    enabled: !!selectedJob?.documentId && showDetailsModal,
   })
 
   // Retry job mutation
@@ -140,6 +188,16 @@ export default function Processing() {
         {status}
       </span>
     )
+  }
+
+  const getStepBadge = (status: 'ok' | 'warn' | 'error' | 'pending') => {
+    const styles: Record<string, string> = {
+      ok: 'bg-green-100 text-green-800',
+      warn: 'bg-yellow-100 text-yellow-800',
+      error: 'bg-red-100 text-red-800',
+      pending: 'bg-gray-100 text-gray-700',
+    }
+    return `px-2 py-1 rounded-full text-xs font-medium ${styles[status]}`
   }
 
   const formatDate = (timestamp?: number) => {
@@ -370,6 +428,15 @@ export default function Processing() {
                           >
                             Remove
                           </button>
+                          <button
+                            onClick={() => {
+                              setSelectedJob(job)
+                              setShowDetailsModal(true)
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            Details
+                          </button>
                           {(job.failedReason || job.status === 'failed') && (
                             <button
                               onClick={() => {
@@ -465,6 +532,98 @@ export default function Processing() {
                 <div className="text-center py-8 text-gray-500">
                   No logs available for this job
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal */}
+      {showDetailsModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-medium">
+                Processing Details - {selectedJob.documentTitle}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false)
+                  setSelectedJob(null)
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+              {reportLoading ? (
+                <div className="text-center py-8 text-gray-500">Loading processing report...</div>
+              ) : reportData ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-medium mb-2">Pipeline Steps</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span>Text extraction</span>
+                          <span className={getStepBadge((reportData.processing?.textLength || 0) > 0 ? 'ok' : 'error')}>
+                            {(reportData.processing?.textLength || 0) > 0 ? 'ok' : 'missing'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>OCR status</span>
+                          <span className={getStepBadge(
+                            reportData.processing?.ocr?.status === 'completed'
+                              ? 'ok'
+                              : reportData.processing?.ocr?.status === 'failed'
+                              ? 'error'
+                              : reportData.processing?.ocr?.status
+                              ? 'warn'
+                              : 'pending'
+                          )}>
+                            {reportData.processing?.ocr?.status || 'n/a'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Page images</span>
+                          <span className={getStepBadge((reportData.processing?.pageImages?.count || 0) > 0 ? 'ok' : 'warn')}>
+                            {reportData.processing?.pageImages?.count || 0}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Search indexing</span>
+                          <span className={getStepBadge(reportData.processing?.search?.indexed ? 'ok' : 'error')}>
+                            {reportData.processing?.search?.indexed ? 'indexed' : 'missing'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Structured data</span>
+                          <span className={getStepBadge(
+                            (reportData.processing?.extraction?.spells || 0) +
+                            (reportData.processing?.extraction?.monsters || 0) +
+                            (reportData.processing?.extraction?.items || 0) > 0 ? 'ok' : 'pending'
+                          )}>
+                            {(reportData.processing?.extraction?.spells || 0) +
+                              (reportData.processing?.extraction?.monsters || 0) +
+                              (reportData.processing?.extraction?.items || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-medium mb-2">Text Preview</h4>
+                      <p className="text-xs text-gray-500 mb-2">
+                        {reportData.processing?.textLength || 0} characters
+                      </p>
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                        {reportData.processing?.textSample || 'No text sample available.'}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-500">No processing report available</div>
               )}
             </div>
           </div>

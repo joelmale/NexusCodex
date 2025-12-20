@@ -416,6 +416,60 @@ export async function documentRoutes(fastify: FastifyInstance) {
   );
 
   /**
+   * GET /api/documents/:id/page-images - Get page image URLs for reader
+   */
+  fastify.get<{ Params: { id: string } }>(
+    '/api/documents/:id/page-images',
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      try {
+        const document = await prisma.document.findUnique({
+          where: { id: request.params.id },
+          select: {
+            id: true,
+            title: true,
+            metadata: true,
+          },
+        });
+
+        if (!document) {
+          return reply.status(404).send({ error: 'Document not found' });
+        }
+
+        const pageImages = (document.metadata as any)?.pageImages || [];
+        if (!Array.isArray(pageImages) || pageImages.length === 0) {
+          return reply.status(404).send({ error: 'No page images available' });
+        }
+
+        const pages = await Promise.all(
+          pageImages.map(async (key: string) => {
+            const match = key.match(/page-(\d+)\.webp$/);
+            const pageNumber = match ? parseInt(match[1], 10) : null;
+            const url = await s3Service.getDownloadUrl(key);
+            return { key, url, pageNumber };
+          })
+        );
+
+        pages.sort((a, b) => {
+          if (a.pageNumber === null && b.pageNumber === null) return 0;
+          if (a.pageNumber === null) return 1;
+          if (b.pageNumber === null) return -1;
+          return a.pageNumber - b.pageNumber;
+        });
+
+        return reply.send({
+          documentId: document.id,
+          title: document.title,
+          count: pages.length,
+          pages,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: 'Failed to load page images' });
+      }
+    }
+  );
+
+  /**
    * PUT /api/documents/:id - Update document metadata
    */
   fastify.put<{ Params: { id: string }; Body: UpdateDocumentInput }>(

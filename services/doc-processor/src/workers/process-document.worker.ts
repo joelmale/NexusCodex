@@ -11,6 +11,10 @@ import { markdownService } from '../services/markdown.service';
 import { extractionService } from '../services/extraction.service';
 import { contentHashService } from '../services/content-hash.service';
 import { loggingService } from '../services/logging.service';
+import { env } from '../config/env';
+import { canvasBackend } from '../utils/canvas';
+
+const MAX_TEXT_SAMPLE_LENGTH = 500;
 
 export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promise<void> {
   const { documentId } = job.data;
@@ -80,6 +84,9 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
     let thumbnailKey: string | undefined;
     let needsOCR = false;
     const pageImageKeys: string[] = [];
+    let pageImagesTotalBytes = 0;
+    let ocrText = '';
+    let ocrStatus: 'pending' | 'processing' | 'completed' | 'failed' | 'not_required' = 'not_required';
 
     // Process based on document format
     if (document.format === 'pdf') {
@@ -96,18 +103,12 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
       if (needsOCR) {
         console.log(`[Worker] PDF appears to be image-based, OCR will be performed`);
         await loggingService.logWarn(jobId, 'PDF appears to be image-based, OCR will be performed');
-        // OCR processing would be done here if needed
-        // For now, we'll mark it as pending OCR
-        await prisma.document.update({
-          where: { id: documentId },
-          data: { ocrStatus: 'pending' },
-        });
-        await loggingService.logInfo(jobId, 'Updated document status to pending (OCR required)');
+        ocrStatus = 'processing';
       }
 
       // Generate thumbnail
       console.log(`[Worker] Generating thumbnail`);
-      await loggingService.logInfo(jobId, 'Generating thumbnail');
+      await loggingService.logInfo(jobId, 'Generating thumbnail', undefined, { canvasBackend });
       try {
         const thumbnailBuffer = await thumbnailService.generateThumbnail(fileBuffer);
 
@@ -120,23 +121,54 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
       } catch (thumbError: any) {
         thumbnailKey = undefined;
         console.warn(`[Worker] Thumbnail generation failed, continuing without thumbnail: ${thumbError.message}`);
-        await loggingService.logWarn(jobId, `Thumbnail generation failed, continuing: ${thumbError.message}`);
+        await loggingService.logWarn(jobId, `Thumbnail generation failed, continuing: ${thumbError.message}`, 'thumbnail', {
+          error: thumbError?.stack || String(thumbError),
+          canvasBackend,
+        });
       }
 
-      // Generate per-page WebP images for reader
+      // Generate per-page WebP images for reader (and OCR buffers if needed)
       console.log(`[Worker] Rendering page images`);
-      await loggingService.logInfo(jobId, 'Rendering page images');
+      await loggingService.logInfo(jobId, 'Rendering page images', undefined, { canvasBackend });
       try {
-        const pageImages = await pageImageService.renderPageImages(fileBuffer);
+        const pageImages = await pageImageService.renderPageImages(fileBuffer, { includeOcrBuffer: needsOCR });
         for (const image of pageImages) {
           const pageKey = `page-images/${documentId}/page-${image.pageNumber}.webp`;
+          pageImagesTotalBytes += image.buffer.length;
           await s3Service.uploadFile(pageKey, image.buffer, 'image/webp');
           pageImageKeys.push(pageKey);
         }
         await loggingService.logInfo(jobId, `Uploaded ${pageImageKeys.length} page images`);
+
+        if (needsOCR) {
+          const ocrBuffers = pageImages
+            .map((image) => image.ocrBuffer)
+            .filter((buffer): buffer is Buffer => !!buffer)
+            .slice(0, env.OCR_MAX_PAGES);
+
+          if (ocrBuffers.length > 0) {
+            await loggingService.logInfo(jobId, `Running OCR on ${ocrBuffers.length} pages`);
+            try {
+              const ocrResults = await ocrService.extractTextFromImages(ocrBuffers);
+              ocrText = ocrResults.join('\n');
+              text = ocrText;
+              ocrStatus = 'completed';
+              await loggingService.logInfo(jobId, `OCR completed, extracted ${ocrText.length} characters`);
+            } catch (ocrError: any) {
+              ocrStatus = 'failed';
+              await loggingService.logError(jobId, `OCR failed: ${ocrError.message}`);
+            }
+          } else {
+            ocrStatus = 'failed';
+            await loggingService.logWarn(jobId, 'OCR skipped: no buffers available');
+          }
+        }
       } catch (pageError: any) {
         console.warn(`[Worker] Page image rendering failed, continuing without page images: ${pageError.message}`);
-        await loggingService.logWarn(jobId, `Page image rendering failed, continuing: ${pageError.message}`);
+        await loggingService.logWarn(jobId, `Page image rendering failed, continuing: ${pageError.message}`, 'page_images', {
+          error: pageError?.stack || String(pageError),
+          canvasBackend,
+        });
       }
 
     } else if (document.format === 'markdown') {
@@ -155,6 +187,7 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
     // Index content in ElasticSearch
     console.log(`[Worker] Indexing document in ElasticSearch`);
     await loggingService.logInfo(jobId, 'Indexing document in ElasticSearch');
+    const indexStart = Date.now();
     const searchIndex = await elasticService.indexDocument({
       documentId: document.id,
       title: document.title,
@@ -166,7 +199,8 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
       collections: document.collections,
       uploadedAt: document.uploadedAt,
     });
-    await loggingService.logInfo(jobId, `Document indexed with ID: ${searchIndex}`);
+    const indexDurationMs = Date.now() - indexStart;
+    await loggingService.logInfo(jobId, `Document indexed with ID: ${searchIndex} in ${indexDurationMs}ms`);
 
     // Extract structured data (spells, monsters, items)
     console.log(`[Worker] Extracting structured data`);
@@ -229,6 +263,38 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
       await loggingService.logInfo(jobId, 'Structured data saved successfully');
     }
 
+    const textLength = text.length;
+    const textSample = text.trim().slice(0, MAX_TEXT_SAMPLE_LENGTH);
+    const textCharsPerPage = pageCount > 0 ? Math.round(textLength / pageCount) : 0;
+
+    const processingMetadata = {
+      format: document.format,
+      textLength,
+      textSample: textSample || undefined,
+      textCharsPerPage,
+      ocr: {
+        detected: needsOCR,
+        performed: needsOCR && ocrStatus === 'completed',
+        status: ocrStatus,
+        reason: needsOCR ? 'Image-based PDF detected' : 'Text-based document',
+      },
+      extraction: {
+        spells: extracted.spells.length,
+        monsters: extracted.monsters.length,
+        items: extracted.items.length,
+      },
+      search: {
+        indexed: !!searchIndex,
+        indexId: searchIndex,
+        indexedAt: new Date().toISOString(),
+        indexDurationMs,
+      },
+      pageImages: {
+        count: pageImageKeys.length,
+        totalBytes: pageImagesTotalBytes,
+      },
+    };
+
     // Update document record with processing results
     console.log(`[Worker] Updating document record`);
     await loggingService.logInfo(jobId, 'Updating document record with processing results');
@@ -238,13 +304,34 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
         pageCount,
         thumbnailKey,
         searchIndex,
-        ocrStatus: needsOCR ? 'pending' : 'completed',
+        ocrStatus: needsOCR ? ocrStatus : 'completed',
         metadata: {
           ...(document.metadata as any),
           pageImages: pageImageKeys,
+          processing: processingMetadata,
         },
       },
     });
+
+    const textSource = document.format === 'markdown' ? 'markdown' : (needsOCR ? 'ocr' : 'pdf_extraction');
+    const contentToStore = text || '';
+    if (contentToStore.trim().length > 0) {
+      await prisma.documentText.upsert({
+        where: {
+          documentId_source: {
+            documentId,
+            source: textSource,
+          },
+        },
+        update: { content: contentToStore },
+        create: {
+          documentId,
+          source: textSource,
+          content: contentToStore,
+        },
+      });
+      await loggingService.logInfo(jobId, `Stored document text (${textSource})`);
+    }
 
     console.log(`[Worker] Successfully processed document: ${documentId}`);
     await loggingService.logInfo(jobId, `Successfully processed document: ${documentId}`);

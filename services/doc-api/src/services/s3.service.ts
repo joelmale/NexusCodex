@@ -84,7 +84,8 @@ class S3Service {
       Key: key,
     });
 
-    return getSignedUrl(this.client, command, {
+    // Use publicClient for download URLs so browsers can access them
+    return getSignedUrl(this.publicClient, command, {
       expiresIn: env.DOWNLOAD_URL_EXPIRY,
     });
   }

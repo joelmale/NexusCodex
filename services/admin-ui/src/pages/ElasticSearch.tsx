@@ -45,7 +45,7 @@ interface ReindexResult {
   errors: string[];
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3005';
+const API_BASE_URL = '';
 
 export default function ElasticSearch() {
   const [reindexProgress, setReindexProgress] = useState<ReindexResult | null>(null);

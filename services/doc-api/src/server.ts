@@ -26,9 +26,12 @@ import { adminValidationRoutes } from './routes/admin/validation';
 import { usersRoutes as adminUserRoutes } from './routes/admin/users';
 import { elasticsearchRoutes } from './routes/admin/elasticsearch';
 import { healthRoutes } from './routes/admin/health';
+import { adminProcessingRoutes } from './routes/admin/processing';
+import { adminLogsRoutes } from './routes/admin/logs';
 import { s3Service } from './services/s3.service';
 import { prisma } from './services/database.service';
 import { AlertsService } from './services/alerts.service';
+import { loggingService } from './services/logging.service';
 
 const fastify = Fastify({
   logger: {
@@ -115,6 +118,25 @@ fastify.register(adminValidationRoutes);
 fastify.register(adminUserRoutes);
 fastify.register(elasticsearchRoutes);
 fastify.register(healthRoutes);
+fastify.register(adminProcessingRoutes);
+fastify.register(adminLogsRoutes);
+
+fastify.addHook('onError', async (request, _reply, error) => {
+  loggingService.log('error', error.message, {
+    method: request.method,
+    url: request.url,
+  }, request.id).catch(() => {});
+});
+
+fastify.addHook('onResponse', async (request, reply) => {
+  const statusCode = reply.statusCode;
+  const level = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
+  loggingService.log(level, 'http_request', {
+    method: request.method,
+    url: request.url,
+    statusCode,
+  }, request.id).catch(() => {});
+});
 
 // Graceful shutdown
 const signals = ['SIGINT', 'SIGTERM'];
@@ -146,8 +168,10 @@ const start = async () => {
 
     fastify.log.info(`Server running on http://0.0.0.0:${env.PORT}`);
     fastify.log.info(`Environment: ${env.NODE_ENV}`);
+    await loggingService.log('info', 'doc-api started', { port: env.PORT });
   } catch (err) {
     fastify.log.error(err);
+    await loggingService.log('critical', 'doc-api failed to start', { error: err instanceof Error ? err.message : String(err) });
     process.exit(1);
   }
 };

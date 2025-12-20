@@ -33,6 +33,11 @@ const envSchema = z.object({
   UPLOAD_URL_EXPIRY: z.string().default('3600').transform(Number), // 1 hour
   DOWNLOAD_URL_EXPIRY: z.string().default('3600').transform(Number), // 1 hour
   MAX_FILE_SIZE: z.string().default('104857600').transform(Number), // 100MB
+
+  // Logging
+  LOGGING_ENABLED: z.string().default('true').transform(val => val === 'true'),
+  LOGGING_INDEX: z.string().default('nexus-logs'),
+  LOGGING_SERVICE_NAME: z.string().default('doc-api'),
 });
 
 export const env = envSchema.parse(process.env);

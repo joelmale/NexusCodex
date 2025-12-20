@@ -32,6 +32,12 @@ const envSchema = z.object({
   PAGE_IMAGE_WIDTH: z.string().default('1200').transform(Number),
   PAGE_IMAGE_QUALITY: z.string().default('80').transform(Number),
   PAGE_IMAGE_MAX_PAGES: z.string().default('200').transform(Number),
+  OCR_MAX_PAGES: z.string().default('50').transform(Number),
+
+  // Logging
+  LOGGING_ENABLED: z.string().default('true').transform(val => val === 'true'),
+  LOGGING_INDEX: z.string().default('nexus-logs'),
+  LOGGING_SERVICE_NAME: z.string().default('doc-processor'),
 });
 
 export const env = envSchema.parse(process.env);

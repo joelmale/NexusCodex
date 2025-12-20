@@ -72,7 +72,7 @@ export default function Search() {
       if (uploadedAfter) params.append('uploadedAfter', uploadedAfter)
       if (uploadedBefore) params.append('uploadedBefore', uploadedBefore)
 
-      const response = await fetch(`http://localhost:3005/api/search/advanced?${params}`)
+      const response = await fetch(`/api/search/advanced?${params}`)
       const data = await response.json()
 
       if (!response.ok) {

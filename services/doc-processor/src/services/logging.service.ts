@@ -1,5 +1,6 @@
 import Redis from 'ioredis';
 import { env } from '../config/env';
+import { centralLoggingService } from './central-logging.service';
 
 // Create Redis connection (reuse the same connection as queue service)
 const redis = new Redis(env.REDIS_URL, {
@@ -8,7 +9,7 @@ const redis = new Redis(env.REDIS_URL, {
 
 export interface ProcessingLog {
   timestamp: string;
-  level: 'info' | 'warn' | 'error';
+  level: 'debug' | 'info' | 'warn' | 'error' | 'critical';
   message: string;
   step?: string;
   details?: any;
@@ -32,6 +33,12 @@ class LoggingService {
     // Add to list and set TTL (7 days)
     await redis.lpush(key, logEntry);
     await redis.expire(key, 7 * 24 * 60 * 60);
+
+    await centralLoggingService.log(log.level, log.message, {
+      jobId,
+      step: log.step,
+      details: log.details,
+    });
   }
 
   /**
@@ -94,6 +101,16 @@ class LoggingService {
     await this.addLog(jobId, {
       timestamp: new Date().toISOString(),
       level: 'error',
+      message,
+      step,
+      details,
+    });
+  }
+
+  async logCritical(jobId: string, message: string, step?: string, details?: any): Promise<void> {
+    await this.addLog(jobId, {
+      timestamp: new Date().toISOString(),
+      level: 'critical',
       message,
       step,
       details,

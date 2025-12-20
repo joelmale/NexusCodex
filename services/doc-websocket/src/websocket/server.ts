@@ -7,6 +7,7 @@ import { handlePageChange, handleScrollSync } from '../handlers/navigation.handl
 import { handlePushPage, handlePushReference } from '../handlers/push.handler';
 import { handleAnnotationCreate, handleAnnotationUpdate, handleAnnotationDelete } from '../handlers/annotation.handler';
 import { sessionService } from '../services/session.service';
+import { loggingService } from '../services/logging.service';
 
 interface ExtendedWebSocket extends WebSocket {
   sessionId?: string;
@@ -38,6 +39,7 @@ export class DocumentWebSocketServer {
 
         if (!token) {
           console.log('WebSocket connection rejected: No token provided');
+          loggingService.log('warn', 'WebSocket connection rejected: missing token');
           ws.close(1008, 'Authentication required');
           return;
         }
@@ -47,8 +49,10 @@ export class DocumentWebSocketServer {
         ws.isAlive = true;
 
         console.log(`WebSocket connection established for user: ${decoded.userId}`);
+        loggingService.log('info', 'WebSocket connection established', { userId: decoded.userId });
       } catch (error) {
         console.log('WebSocket connection rejected: Invalid token');
+        loggingService.log('warn', 'WebSocket connection rejected: invalid token');
         ws.close(1008, 'Invalid authentication token');
         return;
       }
@@ -71,6 +75,7 @@ export class DocumentWebSocketServer {
       // Handle errors
       ws.on('error', (error) => {
         console.error('WebSocket error:', error);
+        loggingService.log('error', 'WebSocket error', { error: error.message || String(error) });
       });
     });
   }
@@ -141,6 +146,11 @@ export class DocumentWebSocketServer {
       }
     } catch (error: any) {
       console.error('Error handling message:', error.message);
+      loggingService.log('error', 'WebSocket message handling error', {
+        error: error.message,
+        userId: ws.userId,
+        sessionId: ws.sessionId,
+      });
       ws.send(
         JSON.stringify({
           type: 'error',
@@ -177,6 +187,10 @@ export class DocumentWebSocketServer {
    */
   private handleDisconnect(ws: ExtendedWebSocket): void {
     console.log('Client disconnected');
+    loggingService.log('info', 'WebSocket client disconnected', {
+      userId: ws.userId,
+      sessionId: ws.sessionId,
+    });
 
     if (ws.sessionId) {
       const sessionClients = this.clients.get(ws.sessionId);
@@ -193,6 +207,11 @@ export class DocumentWebSocketServer {
       if (ws.userId) {
         sessionService.removeViewer(ws.sessionId, ws.userId).catch((error) => {
           console.error('Error removing viewer on disconnect:', error);
+          loggingService.log('error', 'Failed to remove viewer on disconnect', {
+            userId: ws.userId,
+            sessionId: ws.sessionId,
+            error: error.message || String(error),
+          });
         });
 
         // Notify others in the session

@@ -8,6 +8,8 @@ CREATE TABLE "document_chunks" (
     "source" "DocumentTextSource" NOT NULL,
     "chunkHash" TEXT NOT NULL,
     "content" TEXT NOT NULL,
+    "embedding" DOUBLE PRECISION[],
+    "embeddingModel" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "document_chunks_pkey" PRIMARY KEY ("id")

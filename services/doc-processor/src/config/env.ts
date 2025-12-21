@@ -39,6 +39,11 @@ const envSchema = z.object({
   OCR_TEXT_MIN_CHARS: z.string().default('50').transform(Number),
   OCR_TEXT_MIN_WORDS: z.string().default('10').transform(Number),
 
+  // Embeddings
+  EMBEDDINGS_PROVIDER: z.enum(['none', 'hash']).default('none'),
+  EMBEDDINGS_DIM: z.string().default('64').transform(Number),
+  EMBEDDINGS_BATCH_SIZE: z.string().default('20').transform(Number),
+
   // Logging
   LOGGING_ENABLED: z.string().default('true').transform(val => val === 'true'),
   LOGGING_INDEX: z.string().default('nexus-logs'),

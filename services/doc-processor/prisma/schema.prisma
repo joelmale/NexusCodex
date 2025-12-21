@@ -124,6 +124,8 @@ model DocumentChunk {
   source     DocumentTextSource
   chunkHash  String
   content    String
+  embedding  Float[]?
+  embeddingModel String?
   createdAt  DateTime            @default(now())
 
   document   Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)

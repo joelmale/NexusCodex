@@ -13,6 +13,7 @@ import { extractionService } from '../services/extraction.service';
 import { contentHashService } from '../services/content-hash.service';
 import { loggingService } from '../services/logging.service';
 import { chunkingService } from '../services/chunking.service';
+import { embeddingsService } from '../services/embeddings.service';
 import { env } from '../config/env';
 import { canvasBackend } from '../utils/canvas';
 import { STAGES, Stage, ProcessingCheckpoints, isStageComplete, getNextStage } from './stage-utils';
@@ -561,8 +562,26 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
 
         await prisma.documentChunk.deleteMany({ where: { documentId: document.id } });
         if (chunks.length > 0) {
-          await prisma.documentChunk.createMany({ data: chunks });
+          const embeddingsProvider = embeddingsService.getProviderName();
+          const embeddings = embeddingsProvider === 'none'
+            ? []
+            : await embeddingsService.embedTexts(chunks.map((chunk) => chunk.content));
+
+          if (embeddingsProvider !== 'none' && embeddings.length !== chunks.length) {
+            await loggingService.logWarn(jobId, `Embedding count mismatch: expected ${chunks.length}, got ${embeddings.length}`);
+          }
+
+          const chunksWithEmbeddings = chunks.map((chunk, index) => ({
+            ...chunk,
+            embedding: embeddings[index] || null,
+            embeddingModel: embeddingsProvider === 'none' ? null : embeddingsProvider,
+          }));
+
+          await prisma.documentChunk.createMany({ data: chunksWithEmbeddings });
           await loggingService.logInfo(jobId, `Stored ${chunks.length} document chunks`);
+          if (embeddingsProvider !== 'none') {
+            await loggingService.logInfo(jobId, `Stored embeddings for ${chunks.length} chunks (provider=${embeddingsProvider})`);
+          }
         }
 
         await updateProcessing(documentId, document, 'extract', {

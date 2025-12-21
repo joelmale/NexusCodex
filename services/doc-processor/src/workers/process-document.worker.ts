@@ -14,6 +14,7 @@ import { contentHashService } from '../services/content-hash.service';
 import { loggingService } from '../services/logging.service';
 import { chunkingService } from '../services/chunking.service';
 import { embeddingsService } from '../services/embeddings.service';
+import { entityResolverService } from '../services/entity-resolver.service';
 import { env } from '../config/env';
 import { canvasBackend } from '../utils/canvas';
 import { STAGES, Stage, ProcessingCheckpoints, isStageComplete, getNextStage } from './stage-utils';
@@ -494,47 +495,68 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
         await prisma.structuredData.deleteMany({ where: { documentId: document.id } });
         await loggingService.logInfo(jobId, 'Cleared existing structured data entries');
 
-        const spellRows = extracted.spells.map((spell) => ({
-          documentId: document.id,
-          type: 'spell',
-          name: spell.entity.name,
-          data: {
-            ...spell.entity,
-            confidence: spell.confidence,
-            needsReview: spell.confidence < CONFIDENCE_THRESHOLD,
-            failureReason: spell.failureReason,
-            rawSnippet: spell.rawSnippet,
-          } as any,
-          searchText: `${spell.entity.name} ${spell.entity.level} ${spell.entity.school} ${spell.entity.description || ''}`.toLowerCase(),
-        }));
+        const spellRows = await Promise.all(
+          extracted.spells.map(async (spell) => ({
+            documentId: document.id,
+            type: 'spell',
+            name: spell.entity.name,
+            entityId: await entityResolverService.resolveEntity({
+              name: spell.entity.name,
+              type: 'spell',
+              sourceDocumentId: document.id,
+            }),
+            data: {
+              ...spell.entity,
+              confidence: spell.confidence,
+              needsReview: spell.confidence < CONFIDENCE_THRESHOLD,
+              failureReason: spell.failureReason,
+              rawSnippet: spell.rawSnippet,
+            } as any,
+            searchText: `${spell.entity.name} ${spell.entity.level} ${spell.entity.school} ${spell.entity.description || ''}`.toLowerCase(),
+          }))
+        );
 
-        const monsterRows = extracted.monsters.map((monster) => ({
-          documentId: document.id,
-          type: 'monster',
-          name: monster.entity.name,
-          data: {
-            ...monster.entity,
-            confidence: monster.confidence,
-            needsReview: monster.confidence < CONFIDENCE_THRESHOLD,
-            failureReason: monster.failureReason,
-            rawSnippet: monster.rawSnippet,
-          } as any,
-          searchText: `${monster.entity.name} ${monster.entity.type || ''} ${monster.entity.size || ''}`.toLowerCase(),
-        }));
+        const monsterRows = await Promise.all(
+          extracted.monsters.map(async (monster) => ({
+            documentId: document.id,
+            type: 'monster',
+            name: monster.entity.name,
+            entityId: await entityResolverService.resolveEntity({
+              name: monster.entity.name,
+              type: 'monster',
+              sourceDocumentId: document.id,
+            }),
+            data: {
+              ...monster.entity,
+              confidence: monster.confidence,
+              needsReview: monster.confidence < CONFIDENCE_THRESHOLD,
+              failureReason: monster.failureReason,
+              rawSnippet: monster.rawSnippet,
+            } as any,
+            searchText: `${monster.entity.name} ${monster.entity.type || ''} ${monster.entity.size || ''}`.toLowerCase(),
+          }))
+        );
 
-        const itemRows = extracted.items.map((item) => ({
-          documentId: document.id,
-          type: 'item',
-          name: item.entity.name,
-          data: {
-            ...item.entity,
-            confidence: item.confidence,
-            needsReview: item.confidence < CONFIDENCE_THRESHOLD,
-            failureReason: item.failureReason,
-            rawSnippet: item.rawSnippet,
-          } as any,
-          searchText: `${item.entity.name} ${item.entity.type || ''} ${item.entity.rarity || ''}`.toLowerCase(),
-        }));
+        const itemRows = await Promise.all(
+          extracted.items.map(async (item) => ({
+            documentId: document.id,
+            type: 'item',
+            name: item.entity.name,
+            entityId: await entityResolverService.resolveEntity({
+              name: item.entity.name,
+              type: 'item',
+              sourceDocumentId: document.id,
+            }),
+            data: {
+              ...item.entity,
+              confidence: item.confidence,
+              needsReview: item.confidence < CONFIDENCE_THRESHOLD,
+              failureReason: item.failureReason,
+              rawSnippet: item.rawSnippet,
+            } as any,
+            searchText: `${item.entity.name} ${item.entity.type || ''} ${item.entity.rarity || ''}`.toLowerCase(),
+          }))
+        );
 
         const totalRows = spellRows.length + monsterRows.length + itemRows.length;
         if (totalRows > 0) {

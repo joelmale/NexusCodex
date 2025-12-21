@@ -65,6 +65,12 @@ enum StructuredDataType {
   other
 }
 
+enum EntityLinkType {
+  uses
+  references
+  related
+}
+
 enum DocumentTextSource {
   pdf_extraction
   ocr
@@ -230,6 +236,7 @@ model StructuredData {
   id            String              @id @default(uuid())
   documentId    String
   type          StructuredDataType
+  entityId      String?
 
   // Location in document
   pageNumber    Int?
@@ -248,11 +255,66 @@ model StructuredData {
 
   // Relations
   document      Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  entity        Entity?             @relation(fields: [entityId], references: [id], onDelete: SetNull)
 
   @@index([documentId])
   @@index([type])
   @@index([name])
+  @@index([entityId])
   @@map("structured_data")
+}
+
+model Entity {
+  id             String           @id @default(uuid())
+  name           String
+  type           StructuredDataType
+  normalizedName String
+  metadata       Json             @default("{}")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  aliases        EntityAlias[]
+  structuredData StructuredData[]
+  outgoingLinks  EntityLink[]     @relation("EntityLinkSource")
+  incomingLinks  EntityLink[]     @relation("EntityLinkTarget")
+
+  @@unique([type, normalizedName])
+  @@index([type])
+  @@map("entities")
+}
+
+model EntityAlias {
+  id               String           @id @default(uuid())
+  entityId         String
+  entityType       StructuredDataType
+  alias            String
+  normalizedAlias  String
+  sourceDocumentId String?
+  createdAt        DateTime         @default(now())
+
+  entity           Entity           @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, normalizedAlias])
+  @@index([entityId])
+  @@map("entity_aliases")
+}
+
+model EntityLink {
+  id             String         @id @default(uuid())
+  sourceEntityId String
+  targetEntityId String
+  type           EntityLinkType
+  confidence     Float?
+  metadata       Json           @default("{}")
+  createdAt      DateTime       @default(now())
+
+  sourceEntity   Entity         @relation("EntityLinkSource", fields: [sourceEntityId], references: [id], onDelete: Cascade)
+  targetEntity   Entity         @relation("EntityLinkTarget", fields: [targetEntityId], references: [id], onDelete: Cascade)
+
+  @@index([sourceEntityId])
+  @@index([targetEntityId])
+  @@index([type])
+  @@map("entity_links")
 }
 
 model TagMetadata {

@@ -24,6 +24,7 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 | 2025-12-20 | P1 | P1-T3 | Completed | Batched structured data writes with cleanup |
 | 2025-12-20 | P2 | P2-T1 | Completed | Layout-aware text reconstruction + per-page confidence |
 | 2025-12-20 | P2 | P2-T2 | Completed | Modular parsers with confidence + needs_review fallback |
+| 2025-12-20 | P3 | P3-T1 | Completed | Chunk store model + chunking pipeline |
 
 ## P0: Program Setup & Baselines
 
@@ -97,13 +98,13 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 ## P3: Chunk Store + Hybrid Semantic Search (BM25 + Vectors)
 
 ### P3-T1: Introduce chunk storage model and chunking pipeline
-- [ ] Status
+- [x] Status
 - Log:
-  - Start:
-  - End:
-  - Commit:
-  - Tests/Commands:
-  - Notes:
+  - Start: 2025-12-20
+  - End: 2025-12-20
+  - Commit: pending
+  - Tests/Commands: not run (tests added in doc-processor)
+  - Notes: Document chunks stored with page ranges and hashes.
 
 ### P3-T2: Embeddings provider interface and embedding generation
 - [ ] Status

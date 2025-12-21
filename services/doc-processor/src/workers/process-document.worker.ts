@@ -12,6 +12,7 @@ import { markdownService } from '../services/markdown.service';
 import { extractionService } from '../services/extraction.service';
 import { contentHashService } from '../services/content-hash.service';
 import { loggingService } from '../services/logging.service';
+import { chunkingService } from '../services/chunking.service';
 import { env } from '../config/env';
 import { canvasBackend } from '../utils/canvas';
 import { STAGES, Stage, ProcessingCheckpoints, isStageComplete, getNextStage } from './stage-utils';
@@ -35,6 +36,10 @@ type ProcessingMetadata = {
     spells?: number;
     monsters?: number;
     items?: number;
+  };
+  chunks?: {
+    count?: number;
+    source?: string;
   };
   search?: {
     indexed?: boolean;
@@ -546,6 +551,20 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
           await loggingService.logInfo(jobId, 'Structured data saved successfully');
         }
 
+        const chunkSource = preferOcr ? 'ocr' : (document.format === 'markdown' ? 'markdown' : 'pdf_extraction');
+        const chunks = chunkingService.chunkText({
+          text,
+          documentId: document.id,
+          source: chunkSource,
+          pageCount: document.pageCount || 0,
+        });
+
+        await prisma.documentChunk.deleteMany({ where: { documentId: document.id } });
+        if (chunks.length > 0) {
+          await prisma.documentChunk.createMany({ data: chunks });
+          await loggingService.logInfo(jobId, `Stored ${chunks.length} document chunks`);
+        }
+
         await updateProcessing(documentId, document, 'extract', {
           completedAt: new Date().toISOString(),
           durationMs: Date.now() - start,
@@ -554,6 +573,10 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
             spells: extracted.spells.length,
             monsters: extracted.monsters.length,
             items: extracted.items.length,
+          },
+          chunks: {
+            count: chunks.length,
+            source: chunkSource,
           },
         });
 

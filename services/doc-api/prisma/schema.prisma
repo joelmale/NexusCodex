@@ -115,6 +115,7 @@ model Document {
   annotations     DocumentAnnotation[]
   structuredData  StructuredData[]
   textEntries     DocumentText[]
+  chunks          DocumentChunk[]
   uploader        User?               @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
 
   @@index([uploadedBy])
@@ -138,6 +139,25 @@ model DocumentText {
   @@unique([documentId, source])
   @@index([source])
   @@map("document_texts")
+}
+
+model DocumentChunk {
+  id         String              @id @default(uuid())
+  documentId String
+  chunkIndex Int
+  pageStart  Int?
+  pageEnd    Int?
+  source     DocumentTextSource
+  chunkHash  String
+  content    String
+  createdAt  DateTime            @default(now())
+
+  document   Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkHash])
+  @@index([documentId])
+  @@index([chunkHash])
+  @@map("document_chunks")
 }
 
 model DocumentReference {

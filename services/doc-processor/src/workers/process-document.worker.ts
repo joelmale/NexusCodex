@@ -450,54 +450,46 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
         const extracted = extractionService.extractAll(text);
         await loggingService.logInfo(jobId, `Extracted ${extracted.spells.length} spells, ${extracted.monsters.length} monsters, ${extracted.items.length} items`);
 
-        const structuredDataPromises: Promise<any>[] = [];
+        await prisma.structuredData.deleteMany({ where: { documentId: document.id } });
+        await loggingService.logInfo(jobId, 'Cleared existing structured data entries');
 
-        for (const spell of extracted.spells) {
-          structuredDataPromises.push(
-            prisma.structuredData.create({
-              data: {
-                documentId: document.id,
-                type: 'spell',
-                name: spell.name,
-                data: spell as any,
-                searchText: `${spell.name} ${spell.level} ${spell.school} ${spell.description || ''}`.toLowerCase(),
-              },
-            })
-          );
-        }
+        const spellRows = extracted.spells.map((spell) => ({
+          documentId: document.id,
+          type: 'spell',
+          name: spell.name,
+          data: spell as any,
+          searchText: `${spell.name} ${spell.level} ${spell.school} ${spell.description || ''}`.toLowerCase(),
+        }));
 
-        for (const monster of extracted.monsters) {
-          structuredDataPromises.push(
-            prisma.structuredData.create({
-              data: {
-                documentId: document.id,
-                type: 'monster',
-                name: monster.name,
-                data: monster as any,
-                searchText: `${monster.name} ${monster.type || ''} ${monster.size || ''}`.toLowerCase(),
-              },
-            })
-          );
-        }
+        const monsterRows = extracted.monsters.map((monster) => ({
+          documentId: document.id,
+          type: 'monster',
+          name: monster.name,
+          data: monster as any,
+          searchText: `${monster.name} ${monster.type || ''} ${monster.size || ''}`.toLowerCase(),
+        }));
 
-        for (const item of extracted.items) {
-          structuredDataPromises.push(
-            prisma.structuredData.create({
-              data: {
-                documentId: document.id,
-                type: 'item',
-                name: item.name,
-                data: item as any,
-                searchText: `${item.name} ${item.type || ''} ${item.rarity || ''}`.toLowerCase(),
-              },
-            })
-          );
-        }
+        const itemRows = extracted.items.map((item) => ({
+          documentId: document.id,
+          type: 'item',
+          name: item.name,
+          data: item as any,
+          searchText: `${item.name} ${item.type || ''} ${item.rarity || ''}`.toLowerCase(),
+        }));
 
-        if (structuredDataPromises.length > 0) {
-          console.log(`[Worker] Saving ${structuredDataPromises.length} structured data entries`);
-          await loggingService.logInfo(jobId, `Saving ${structuredDataPromises.length} structured data entries`);
-          await Promise.all(structuredDataPromises);
+        const totalRows = spellRows.length + monsterRows.length + itemRows.length;
+        if (totalRows > 0) {
+          console.log(`[Worker] Saving ${totalRows} structured data entries (batch)`);
+          await loggingService.logInfo(jobId, `Saving ${totalRows} structured data entries (batch)`);
+          if (spellRows.length > 0) {
+            await prisma.structuredData.createMany({ data: spellRows });
+          }
+          if (monsterRows.length > 0) {
+            await prisma.structuredData.createMany({ data: monsterRows });
+          }
+          if (itemRows.length > 0) {
+            await prisma.structuredData.createMany({ data: itemRows });
+          }
           await loggingService.logInfo(jobId, 'Structured data saved successfully');
         }
 

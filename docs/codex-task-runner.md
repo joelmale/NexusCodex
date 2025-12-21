@@ -21,6 +21,7 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 | 2025-12-20 | P0 | P0-T2 | Completed | Upgrade plan doc + ADR template added |
 | 2025-12-20 | P1 | P1-T1 | Completed | Staged ingestion pipeline + checkpoints + asset queue split |
 | 2025-12-20 | P1 | P1-T2 | Completed | OCR pool + configurable detection thresholds |
+| 2025-12-20 | P1 | P1-T3 | Completed | Batched structured data writes with cleanup |
 
 ## P0: Program Setup & Baselines
 
@@ -63,13 +64,13 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
   - Notes: OCR pool with configurable concurrency and detection thresholds.
 
 ### P1-T3: Batch DB writes to avoid write amplification
-- [ ] Status
+- [x] Status
 - Log:
-  - Start:
-  - End:
-  - Commit:
-  - Tests/Commands:
-  - Notes:
+  - Start: 2025-12-20
+  - End: 2025-12-20
+  - Commit: pending
+  - Tests/Commands: not run
+  - Notes: Structured data uses deleteMany + createMany batches.
 
 ## P2: Layout-aware Extraction & Parser Modularization
 

@@ -17,6 +17,7 @@ import { canvasBackend } from '../utils/canvas';
 import { STAGES, Stage, ProcessingCheckpoints, isStageComplete, getNextStage } from './stage-utils';
 
 const MAX_TEXT_SAMPLE_LENGTH = 500;
+const CONFIDENCE_THRESHOLD = 0.6;
 type ProcessingMetadata = {
   stage?: Stage;
   stageUpdatedAt?: string;
@@ -490,25 +491,43 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
         const spellRows = extracted.spells.map((spell) => ({
           documentId: document.id,
           type: 'spell',
-          name: spell.name,
-          data: spell as any,
-          searchText: `${spell.name} ${spell.level} ${spell.school} ${spell.description || ''}`.toLowerCase(),
+          name: spell.entity.name,
+          data: {
+            ...spell.entity,
+            confidence: spell.confidence,
+            needsReview: spell.confidence < CONFIDENCE_THRESHOLD,
+            failureReason: spell.failureReason,
+            rawSnippet: spell.rawSnippet,
+          } as any,
+          searchText: `${spell.entity.name} ${spell.entity.level} ${spell.entity.school} ${spell.entity.description || ''}`.toLowerCase(),
         }));
 
         const monsterRows = extracted.monsters.map((monster) => ({
           documentId: document.id,
           type: 'monster',
-          name: monster.name,
-          data: monster as any,
-          searchText: `${monster.name} ${monster.type || ''} ${monster.size || ''}`.toLowerCase(),
+          name: monster.entity.name,
+          data: {
+            ...monster.entity,
+            confidence: monster.confidence,
+            needsReview: monster.confidence < CONFIDENCE_THRESHOLD,
+            failureReason: monster.failureReason,
+            rawSnippet: monster.rawSnippet,
+          } as any,
+          searchText: `${monster.entity.name} ${monster.entity.type || ''} ${monster.entity.size || ''}`.toLowerCase(),
         }));
 
         const itemRows = extracted.items.map((item) => ({
           documentId: document.id,
           type: 'item',
-          name: item.name,
-          data: item as any,
-          searchText: `${item.name} ${item.type || ''} ${item.rarity || ''}`.toLowerCase(),
+          name: item.entity.name,
+          data: {
+            ...item.entity,
+            confidence: item.confidence,
+            needsReview: item.confidence < CONFIDENCE_THRESHOLD,
+            failureReason: item.failureReason,
+            rawSnippet: item.rawSnippet,
+          } as any,
+          searchText: `${item.entity.name} ${item.entity.type || ''} ${item.entity.rarity || ''}`.toLowerCase(),
         }));
 
         const totalRows = spellRows.length + monsterRows.length + itemRows.length;

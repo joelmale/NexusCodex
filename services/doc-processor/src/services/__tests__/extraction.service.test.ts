@@ -16,9 +16,9 @@ Description: A bright streak flashes from your pointing finger to a point you ch
       const spells = extractionService.extractSpells(text);
 
       expect(spells).toHaveLength(1);
-      expect(spells[0].name).toBe('Fireball');
-      expect(spells[0].level).toBe('3rd-level');
-      expect(spells[0].school).toBe('evocation');
+      expect(spells[0].entity.name).toBe('Fireball');
+      expect(spells[0].entity.level).toBe('3rd-level');
+      expect(spells[0].entity.school).toBe('evocation');
     });
 
     it('should extract multiple spells from text', () => {
@@ -35,8 +35,8 @@ Casting Time: 1 reaction
       const spells = extractionService.extractSpells(text);
 
       expect(spells).toHaveLength(2);
-      expect(spells[0].name).toBe('Magic Missile');
-      expect(spells[1].name).toBe('Shield');
+      expect(spells[0].entity.name).toBe('Magic Missile');
+      expect(spells[1].entity.name).toBe('Shield');
     });
 
     it('should extract cantrips', () => {
@@ -49,8 +49,8 @@ Casting Time: 1 action
       const spells = extractionService.extractSpells(text);
 
       expect(spells).toHaveLength(1);
-      expect(spells[0].name).toBe('Prestidigitation');
-      expect(spells[0].level).toContain('Cantrip');
+      expect(spells[0].entity.name).toBe('Prestidigitation');
+      expect(spells[0].entity.level).toContain('Cantrip');
     });
 
     it('should return empty array when no spells found', () => {
@@ -75,9 +75,9 @@ Challenge: 1/4 (50 XP)
       const monsters = extractionService.extractMonsters(text);
 
       expect(monsters).toHaveLength(1);
-      expect(monsters[0].name).toBe('Goblin');
-      expect(monsters[0].size).toBe('Small');
-      expect(monsters[0].type).toBe('humanoid (goblinoid)');
+      expect(monsters[0].entity.name).toBe('Goblin');
+      expect(monsters[0].entity.size).toBe('Small');
+      expect(monsters[0].entity.type).toBe('humanoid (goblinoid)');
     });
 
     it('should extract armor class and hit points', () => {
@@ -93,9 +93,9 @@ Challenge: 13 (10,000 XP)
       const monsters = extractionService.extractMonsters(text);
 
       expect(monsters).toHaveLength(1);
-      expect(monsters[0].name).toBe('Dragon');
-      expect(monsters[0].ac).toContain('18');
-      expect(monsters[0].hp).toContain('200');
+      expect(monsters[0].entity.name).toBe('Dragon');
+      expect(monsters[0].entity.ac).toContain('18');
+      expect(monsters[0].entity.hp).toContain('200');
     });
 
     it('should return empty array when no monsters found', () => {
@@ -116,9 +116,9 @@ When you attack an object with this magic sword and hit, maximize your weapon da
       const items = extractionService.extractItems(text);
 
       expect(items).toHaveLength(1);
-      expect(items[0].name).toBe('Sword of Sharpness');
-      expect(items[0].type).toContain('Weapon');
-      expect(items[0].rarity).toContain('very rare');
+      expect(items[0].entity.name).toBe('Sword of Sharpness');
+      expect(items[0].entity.type).toContain('Weapon');
+      expect(items[0].entity.rarity).toContain('very rare');
     });
 
     it('should detect attunement requirement', () => {
@@ -131,7 +131,7 @@ You gain a +1 bonus to AC and saving throws while wearing this ring.
       const items = extractionService.extractItems(text);
 
       expect(items).toHaveLength(1);
-      expect(items[0].attunement).toBe(true);
+      expect(items[0].entity.attunement).toBe(true);
     });
 
     it('should handle items without attunement', () => {
@@ -144,7 +144,7 @@ You regain 2d4 + 2 hit points when you drink this potion.
       const items = extractionService.extractItems(text);
 
       expect(items).toHaveLength(1);
-      expect(items[0].attunement).toBe(false);
+      expect(items[0].entity.attunement).toBe(false);
     });
 
     it('should return empty array when no items found', () => {

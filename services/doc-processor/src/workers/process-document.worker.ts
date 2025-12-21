@@ -380,14 +380,19 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
         return;
       }
 
-        await loggingService.logInfo(jobId, `Running OCR on ${pageKeys.length} pages`);
+        await loggingService.logInfo(jobId, `Running OCR on ${pageKeys.length} pages (pool=${env.OCR_WORKER_POOL_SIZE})`);
         let ocrText = '';
         let ocrStatus: 'completed' | 'failed' = 'completed';
 
         try {
           const ocrBuffers = await Promise.all(pageKeys.map((key) => s3Service.downloadFile(key)));
-          const ocrResults = await ocrService.extractTextFromImages(ocrBuffers);
-          ocrText = ocrResults.join('\n');
+          const ocrResult = await ocrService.extractTextFromImagesWithPool(ocrBuffers, env.OCR_WORKER_POOL_SIZE);
+          ocrText = ocrResult.results.join('\n');
+          const durations = ocrResult.durations.filter((value) => Number.isFinite(value));
+          const totalDuration = durations.reduce((sum, value) => sum + value, 0);
+          const avgDuration = durations.length ? Math.round(totalDuration / durations.length) : 0;
+          const maxDuration = durations.length ? Math.max(...durations) : 0;
+          await loggingService.logInfo(jobId, `OCR timing: pages=${durations.length} avgMs=${avgDuration} maxMs=${maxDuration}`);
           await loggingService.logInfo(jobId, `OCR completed, extracted ${ocrText.length} characters`);
         } catch (ocrError: any) {
           ocrStatus = 'failed';

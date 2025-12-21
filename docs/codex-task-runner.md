@@ -20,6 +20,7 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 | 2025-12-20 | P0 | P0-T1 | Completed | Benchmark harness + README instructions added |
 | 2025-12-20 | P0 | P0-T2 | Completed | Upgrade plan doc + ADR template added |
 | 2025-12-20 | P1 | P1-T1 | Completed | Staged ingestion pipeline + checkpoints + asset queue split |
+| 2025-12-20 | P1 | P1-T2 | Completed | OCR pool + configurable detection thresholds |
 
 ## P0: Program Setup & Baselines
 
@@ -53,13 +54,13 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
   - Notes: Staged ingestion with checkpoints; assets moved to separate queue.
 
 ### P1-T2: Parallel OCR worker pool + fast-path detection
-- [ ] Status
+- [x] Status
 - Log:
-  - Start:
-  - End:
-  - Commit:
-  - Tests/Commands:
-  - Notes:
+  - Start: 2025-12-20
+  - End: 2025-12-20
+  - Commit: pending
+  - Tests/Commands: not run (tests added in doc-processor)
+  - Notes: OCR pool with configurable concurrency and detection thresholds.
 
 ### P1-T3: Batch DB writes to avoid write amplification
 - [ ] Status

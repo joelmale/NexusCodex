@@ -35,6 +35,9 @@ const envSchema = z.object({
   PAGE_IMAGE_QUALITY: z.string().default('80').transform(Number),
   PAGE_IMAGE_MAX_PAGES: z.string().default('200').transform(Number),
   OCR_MAX_PAGES: z.string().default('50').transform(Number),
+  OCR_WORKER_POOL_SIZE: z.string().default('2').transform(Number),
+  OCR_TEXT_MIN_CHARS: z.string().default('50').transform(Number),
+  OCR_TEXT_MIN_WORDS: z.string().default('10').transform(Number),
 
   // Logging
   LOGGING_ENABLED: z.string().default('true').transform(val => val === 'true'),

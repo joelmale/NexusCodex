@@ -15,6 +15,7 @@ A production-ready microservices platform for managing, processing, and collabor
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
 - [Documentation](#documentation)
+- [Architecture ICD](#architecture-icd)
 - [API Documentation](#api-documentation)
 - [WebSocket Events](#websocket-events)
 - [Development](#development)
@@ -254,6 +255,10 @@ The documentation site will be available at: http://localhost:3003
 - **⚙️ Configuration** - Environment variables and settings
 - **🚀 Deployment Guide** - Production deployment instructions
 - **🛠️ Development Setup** - Local development environment
+
+## Architecture ICD
+
+- [Architecture & Interface Control Document](docs/architecture-icd.md)
 
 ### Building Documentation
 

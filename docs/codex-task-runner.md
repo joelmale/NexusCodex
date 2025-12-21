@@ -30,6 +30,7 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 | 2025-12-20 | P4 | P4-T1 | Completed | Grounded ask endpoint with citations |
 | 2025-12-20 | P5 | P5-T1 | Completed | Canonical entity registry + resolver |
 | 2025-12-20 | P5 | P5-T2 | Completed | Entity mentions + spell link worker |
+| 2025-12-20 | P6 | P6-T1 | Completed | Command palette for global search + ask |
 
 ## P0: Program Setup & Baselines
 
@@ -163,13 +164,13 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 ## P6: Global Command Palette UX
 
 ### P6-T1: Implement command palette integrating keyword search, semantic search, and ask
-- [ ] Status
+- [x] Status
 - Log:
-  - Start:
-  - End:
-  - Commit:
-  - Tests/Commands:
-  - Notes:
+  - Start: 2025-12-20
+  - End: 2025-12-20
+  - Commit: pending
+  - Tests/Commands: not run
+  - Notes: Cmd/Ctrl+K opens palette with quick/semantic/ask results.
 
 ## P7: VTT Integration + Real-time Entity Push
 

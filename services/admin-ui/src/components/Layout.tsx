@@ -1,4 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import CommandPalette from './CommandPalette'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -6,6 +8,22 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen(true)
+      }
+      if (event.key === 'Escape') {
+        setPaletteOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
 
   const navItems = [
     { path: '/', label: 'Dashboard' },
@@ -58,10 +76,19 @@ export default function Layout({ children }: LayoutProps) {
                 ))}
               </div>
             </div>
+            <div className="hidden sm:flex items-center">
+              <button
+                onClick={() => setPaletteOpen(true)}
+                className="px-3 py-1 text-xs rounded-full border border-slate-200 text-slate-500 hover:text-slate-800"
+              >
+                Cmd/Ctrl + K
+              </button>
+            </div>
           </div>
         </div>
       </nav>
       <main>{children}</main>
+      <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   )
 }

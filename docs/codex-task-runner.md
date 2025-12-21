@@ -32,6 +32,7 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 | 2025-12-20 | P5 | P5-T2 | Completed | Entity mentions + spell link worker |
 | 2025-12-20 | P6 | P6-T1 | Completed | Command palette for global search + ask |
 | 2025-12-20 | P7 | P7-T1 | Completed | VTT export + websocket push events |
+| 2025-12-20 | P8 | P8-T1 | Completed | Eval suite scripts for retrieval, ask, ingest |
 
 ## P0: Program Setup & Baselines
 
@@ -187,10 +188,10 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 ## P8: Quality Gates, Evaluation, and Scaling
 
 ### P8-T1: Automated eval suite for retrieval, RAG grounding, and ingestion regression
-- [ ] Status
+- [x] Status
 - Log:
-  - Start:
-  - End:
-  - Commit:
-  - Tests/Commands:
-  - Notes:
+  - Start: 2025-12-20
+  - End: 2025-12-20
+  - Commit: pending
+  - Tests/Commands: `node scripts/eval-suite.js --api http://localhost:3005`
+  - Notes: Adds eval scripts for retrieval, ask, and ingest regression.

@@ -45,6 +45,10 @@ const envSchema = z.object({
   // Embeddings
   EMBEDDINGS_PROVIDER: z.enum(['none', 'hash']).default('none'),
   EMBEDDINGS_DIM: z.string().default('64').transform(Number),
+
+  // LLM
+  LLM_PROVIDER: z.enum(['none']).default('none'),
+  LLM_MODEL: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

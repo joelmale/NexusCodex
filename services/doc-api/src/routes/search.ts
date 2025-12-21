@@ -2,7 +2,8 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { elasticService } from '../services/elastic.service';
 import { contentHashService } from '../services/content-hash.service';
 import { searchChunks } from '../services/chunk-search.service';
-import { SearchQuerySchema, QuickSearchQuerySchema, AdvancedSearchQuerySchema, SemanticSearchQuerySchema, SearchQuery, QuickSearchQuery, AdvancedSearchQuery, SemanticSearchQuery } from '../types/search';
+import { generateGroundedAnswer } from '../services/llm.service';
+import { SearchQuerySchema, QuickSearchQuerySchema, AdvancedSearchQuerySchema, SemanticSearchQuerySchema, AskSearchSchema, SearchQuery, QuickSearchQuery, AdvancedSearchQuery, SemanticSearchQuery, AskSearchInput } from '../types/search';
 
 export async function searchRoutes(fastify: FastifyInstance) {
   /**
@@ -153,6 +154,66 @@ export async function searchRoutes(fastify: FastifyInstance) {
         fastify.log.error(error);
         return reply.status(500).send({
           error: 'Semantic search failed',
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /api/search/ask - Grounded Q&A using retrieved chunks
+   */
+  fastify.post<{ Body: AskSearchInput }>(
+    '/api/search/ask',
+    async (request: FastifyRequest<{ Body: AskSearchInput }>, reply: FastifyReply) => {
+      try {
+        const params = AskSearchSchema.parse(request.body);
+        const results = await searchChunks({
+          query: params.question,
+          topK: params.topK,
+          filters: {
+            type: params.type,
+            campaigns: params.campaigns,
+            tags: params.tags,
+          },
+        });
+
+        const snippets = results.map((result) => result.contentSnippet);
+        const citations = results.map((result, index) => ({
+          sourceIndex: index + 1,
+          documentId: result.documentId,
+          title: result.document.title,
+          pageStart: result.pageStart,
+          pageEnd: result.pageEnd,
+          chunkId: result.chunkId,
+          confidence: result.score,
+        }));
+
+        let answer = 'Insufficient sources to answer.';
+        let confidence = 0.1;
+        if (results.length >= 2 && snippets.join(' ').length > 200) {
+          const grounded = await generateGroundedAnswer({
+            question: params.question,
+            snippets,
+          });
+          if (grounded) {
+            answer = grounded;
+            confidence = 0.7;
+          }
+        }
+
+        return reply.send({
+          question: params.question,
+          answer,
+          confidence,
+          citations,
+          snippets,
+          followups: [],
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Ask search failed',
           details: error.message,
         });
       }

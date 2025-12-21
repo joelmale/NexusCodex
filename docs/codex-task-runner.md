@@ -27,6 +27,7 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 | 2025-12-20 | P3 | P3-T1 | Completed | Chunk store model + chunking pipeline |
 | 2025-12-20 | P3 | P3-T2 | Completed | Embeddings provider + chunk embeddings |
 | 2025-12-20 | P3 | P3-T3 | Completed | Hybrid semantic search endpoint |
+| 2025-12-20 | P4 | P4-T1 | Completed | Grounded ask endpoint with citations |
 
 ## P0: Program Setup & Baselines
 
@@ -129,13 +130,13 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 ## P4: RAG Q&A with Strict Grounding + Citations
 
 ### P4-T1: Implement /api/search/ask with strict grounding and structured citations
-- [ ] Status
+- [x] Status
 - Log:
-  - Start:
-  - End:
-  - Commit:
-  - Tests/Commands:
-  - Notes:
+  - Start: 2025-12-20
+  - End: 2025-12-20
+  - Commit: pending
+  - Tests/Commands: `node scripts/eval-ask.js --api http://localhost:3005`
+  - Notes: Ask endpoint returns citations; eval script checks citations.
 
 ## P5: Canonical Entity Registry + Cross-Document Linking + Graph
 

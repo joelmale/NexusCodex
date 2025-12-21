@@ -9,6 +9,7 @@ const connection = new Redis(env.REDIS_URL, {
 
 export interface ProcessDocumentJob {
   documentId: string;
+  stage?: 'ingest' | 'render' | 'ocr' | 'extract' | 'index' | 'assets';
 }
 
 // Create queue instance for adding jobs
@@ -18,7 +19,7 @@ export const documentQueue = new Queue<ProcessDocumentJob>(env.QUEUE_NAME, {
 
 // Add a document to the processing queue
 export async function enqueueDocumentProcessing(documentId: string): Promise<string> {
-  const job = await documentQueue.add('process-document', { documentId });
+  const job = await documentQueue.add('process-ingest', { documentId, stage: 'ingest' });
   return job.id || '';
 }
 

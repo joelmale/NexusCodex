@@ -718,6 +718,35 @@ cd services/doc-processor && npm run dev &
 cd services/doc-websocket && npm run dev &
 ```
 
+### Ingestion Benchmark
+
+```bash
+# Run a benchmark against a local stack
+node scripts/benchmark-ingest.js --file /path/to/document.pdf --api http://localhost:3005
+```
+
+Example output:
+```
+[benchmark] api=http://localhost:3005
+[benchmark] file=/path/to/document.pdf size=123456 format=pdf
+[benchmark] created document id=... in 120ms
+[benchmark] uploaded file in 980ms
+[benchmark] queued job id=... in 40ms
+[benchmark] status=processing
+[benchmark] status=completed
+
+[benchmark] results
+- documentId: ...
+- contentHash: ...
+- totalProcessingMs: 24500
+- extractMs: 1800
+- ocrMs: 8200
+- render_pagesMs: 6300
+- thumbnailMs: 540
+- indexMs: 380
+- structured_extractMs: 410
+```
+
 ### Database Management
 
 ```bash

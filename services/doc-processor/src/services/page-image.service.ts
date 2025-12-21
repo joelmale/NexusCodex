@@ -19,6 +19,11 @@ interface PageImageRenderProgress {
   maxPages: number;
 }
 
+export interface RenderedOcrPage {
+  pageNumber: number;
+  buffer: Buffer;
+}
+
 class PageImageService {
   /**
    * Render PDF pages to WebP buffers for reader consumption
@@ -75,6 +80,55 @@ class PageImageService {
             totalPages,
             maxPages,
           });
+        }
+      }
+
+      return images;
+    } finally {
+      await pdfDocument.destroy();
+    }
+  }
+
+  /**
+   * Render PDF pages to PNG buffers for OCR
+   */
+  async renderOcrImages(
+    pdfBuffer: Buffer,
+    options: { onProgress?: (progress: PageImageRenderProgress) => void } = {}
+  ): Promise<RenderedOcrPage[]> {
+    const images: RenderedOcrPage[] = [];
+
+    const uint8Array = new Uint8Array(pdfBuffer);
+    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+    const pdfDocument = await loadingTask.promise;
+
+    const totalPages = pdfDocument.numPages;
+    const maxPages = Math.min(env.OCR_MAX_PAGES, totalPages);
+
+    try {
+      for (let pageNumber = 1; pageNumber <= maxPages; pageNumber++) {
+        const page = await pdfDocument.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 1.0 });
+        const scale = env.PAGE_IMAGE_WIDTH / viewport.width;
+        const scaledViewport = page.getViewport({ scale });
+
+        const canvas = createCanvas(scaledViewport.width, scaledViewport.height);
+        const context = canvas.getContext('2d');
+        if (!context) {
+          throw new Error('Canvas 2d context unavailable');
+        }
+
+        // @ts-ignore
+        await page.render({
+          canvasContext: context as any,
+          viewport: scaledViewport,
+        }).promise;
+
+        const pngBuffer = canvas.toBuffer('image/png');
+        images.push({ pageNumber, buffer: pngBuffer });
+
+        if (options.onProgress) {
+          options.onProgress({ pageNumber, totalPages, maxPages });
         }
       }
 

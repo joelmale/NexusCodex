@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
 import { env } from '../config/env';
 
@@ -55,6 +55,18 @@ class S3Service {
       Key: key,
       Body: body,
       ContentType: contentType,
+    });
+
+    await this.client.send(command);
+  }
+
+  /**
+   * Delete a file from S3
+   */
+  async deleteFile(key: string): Promise<void> {
+    const command = new DeleteObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
     });
 
     await this.client.send(command);

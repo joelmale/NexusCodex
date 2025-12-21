@@ -26,6 +26,7 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 | 2025-12-20 | P2 | P2-T2 | Completed | Modular parsers with confidence + needs_review fallback |
 | 2025-12-20 | P3 | P3-T1 | Completed | Chunk store model + chunking pipeline |
 | 2025-12-20 | P3 | P3-T2 | Completed | Embeddings provider + chunk embeddings |
+| 2025-12-20 | P3 | P3-T3 | Completed | Hybrid semantic search endpoint |
 
 ## P0: Program Setup & Baselines
 
@@ -117,13 +118,13 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
   - Notes: Hash embeddings provider with batching; embeddings stored on chunks when enabled.
 
 ### P3-T3: Hybrid semantic search endpoint returning ranked chunks + citations
-- [ ] Status
+- [x] Status
 - Log:
-  - Start:
-  - End:
-  - Commit:
-  - Tests/Commands:
-  - Notes:
+  - Start: 2025-12-20
+  - End: 2025-12-20
+  - Commit: pending
+  - Tests/Commands: not run
+  - Notes: `/api/search/semantic` returns ranked chunks with citations.
 
 ## P4: RAG Q&A with Strict Grounding + Citations
 

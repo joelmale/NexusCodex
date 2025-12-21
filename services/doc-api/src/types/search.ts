@@ -31,6 +31,15 @@ export const AdvancedSearchQuerySchema = z.object({
   size: z.string().optional().default('20').transform(Number),
 });
 
+export const SemanticSearchQuerySchema = z.object({
+  query: z.string().min(1),
+  type: DocumentTypeEnum.optional(),
+  campaigns: z.string().optional().transform(val => val ? val.split(',') : undefined),
+  tags: z.string().optional().transform(val => val ? val.split(',') : undefined),
+  topK: z.string().optional().default('10').transform(Number),
+});
+
 export type SearchQuery = z.infer<typeof SearchQuerySchema>;
 export type QuickSearchQuery = z.infer<typeof QuickSearchQuerySchema>;
 export type AdvancedSearchQuery = z.infer<typeof AdvancedSearchQuerySchema>;
+export type SemanticSearchQuery = z.infer<typeof SemanticSearchQuerySchema>;

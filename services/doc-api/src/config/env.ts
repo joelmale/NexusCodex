@@ -41,6 +41,10 @@ const envSchema = z.object({
 
   // Auth
   AUTH_DISABLED: z.string().default('false').transform(val => val === 'true'),
+
+  // Embeddings
+  EMBEDDINGS_PROVIDER: z.enum(['none', 'hash']).default('none'),
+  EMBEDDINGS_DIM: z.string().default('64').transform(Number),
 });
 
 export const env = envSchema.parse(process.env);

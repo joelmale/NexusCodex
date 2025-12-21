@@ -1,7 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { elasticService } from '../services/elastic.service';
 import { contentHashService } from '../services/content-hash.service';
-import { SearchQuerySchema, QuickSearchQuerySchema, AdvancedSearchQuerySchema, SearchQuery, QuickSearchQuery, AdvancedSearchQuery } from '../types/search';
+import { searchChunks } from '../services/chunk-search.service';
+import { SearchQuerySchema, QuickSearchQuerySchema, AdvancedSearchQuerySchema, SemanticSearchQuerySchema, SearchQuery, QuickSearchQuery, AdvancedSearchQuery, SemanticSearchQuery } from '../types/search';
 
 export async function searchRoutes(fastify: FastifyInstance) {
   /**
@@ -118,6 +119,40 @@ export async function searchRoutes(fastify: FastifyInstance) {
         fastify.log.error(error);
         return reply.status(400).send({
           error: 'Advanced search failed',
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  /**
+   * GET /api/search/semantic - Hybrid semantic search over document chunks
+   */
+  fastify.get<{ Querystring: SemanticSearchQuery }>(
+    '/api/search/semantic',
+    async (request: FastifyRequest<{ Querystring: SemanticSearchQuery }>, reply: FastifyReply) => {
+      try {
+        const params = SemanticSearchQuerySchema.parse(request.query);
+        const results = await searchChunks({
+          query: params.query,
+          topK: params.topK,
+          filters: {
+            type: params.type,
+            campaigns: params.campaigns,
+            tags: params.tags,
+          },
+        });
+
+        return reply.send({
+          query: params.query,
+          total: results.length,
+          provider: 'hybrid',
+          results,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Semantic search failed',
           details: error.message,
         });
       }

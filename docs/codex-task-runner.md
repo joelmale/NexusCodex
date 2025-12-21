@@ -29,6 +29,7 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 | 2025-12-20 | P3 | P3-T3 | Completed | Hybrid semantic search endpoint |
 | 2025-12-20 | P4 | P4-T1 | Completed | Grounded ask endpoint with citations |
 | 2025-12-20 | P5 | P5-T1 | Completed | Canonical entity registry + resolver |
+| 2025-12-20 | P5 | P5-T2 | Completed | Entity mentions + spell link worker |
 
 ## P0: Program Setup & Baselines
 
@@ -151,13 +152,13 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
   - Notes: Entities and aliases added; structured data links to entityId.
 
 ### P5-T2: Reference extraction + resolution worker to create typed links
-- [ ] Status
+- [x] Status
 - Log:
-  - Start:
-  - End:
-  - Commit:
-  - Tests/Commands:
-  - Notes:
+  - Start: 2025-12-20
+  - End: 2025-12-20
+  - Commit: pending
+  - Tests/Commands: not run
+  - Notes: Spell mentions extracted from monster snippets and linked.
 
 ## P6: Global Command Palette UX
 

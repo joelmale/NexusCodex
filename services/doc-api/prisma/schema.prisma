@@ -314,7 +314,29 @@ model EntityLink {
   @@index([sourceEntityId])
   @@index([targetEntityId])
   @@index([type])
+  @@unique([sourceEntityId, targetEntityId, type])
   @@map("entity_links")
+}
+
+model EntityMention {
+  id              String             @id @default(uuid())
+  documentId      String
+  sourceEntityId  String?
+  mentionText     String
+  context         String
+  targetType      StructuredDataType
+  resolvedEntityId String?
+  confidence      Float?
+  createdAt       DateTime           @default(now())
+
+  document        Document           @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sourceEntity    Entity?            @relation("EntityMentionSource", fields: [sourceEntityId], references: [id], onDelete: SetNull)
+  resolvedEntity  Entity?            @relation("EntityMentionResolved", fields: [resolvedEntityId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([targetType])
+  @@index([resolvedEntityId])
+  @@map("entity_mentions")
 }
 
 model TagMetadata {

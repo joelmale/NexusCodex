@@ -15,6 +15,7 @@ import { loggingService } from '../services/logging.service';
 import { chunkingService } from '../services/chunking.service';
 import { embeddingsService } from '../services/embeddings.service';
 import { entityResolverService } from '../services/entity-resolver.service';
+import { entityLinkingService } from '../services/entity-linking.service';
 import { env } from '../config/env';
 import { canvasBackend } from '../utils/canvas';
 import { STAGES, Stage, ProcessingCheckpoints, isStageComplete, getNextStage } from './stage-utils';
@@ -572,6 +573,21 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
             await prisma.structuredData.createMany({ data: itemRows });
           }
           await loggingService.logInfo(jobId, 'Structured data saved successfully');
+        }
+
+        const monsterMentions = monsterRows
+          .filter((monster) => monster.entityId && monster.data?.rawSnippet)
+          .map((monster) => ({
+            entityId: monster.entityId!,
+            rawSnippet: monster.data.rawSnippet as string,
+          }));
+
+        if (monsterMentions.length > 0) {
+          await entityLinkingService.linkSpellMentions({
+            documentId: document.id,
+            monsters: monsterMentions,
+          });
+          await loggingService.logInfo(jobId, `Linked ${monsterMentions.length} monster spell mentions`);
         }
 
         const chunkSource = preferOcr ? 'ocr' : (document.format === 'markdown' ? 'markdown' : 'pdf_extraction');

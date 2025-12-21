@@ -31,6 +31,7 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 | 2025-12-20 | P5 | P5-T1 | Completed | Canonical entity registry + resolver |
 | 2025-12-20 | P5 | P5-T2 | Completed | Entity mentions + spell link worker |
 | 2025-12-20 | P6 | P6-T1 | Completed | Command palette for global search + ask |
+| 2025-12-20 | P7 | P7-T1 | Completed | VTT export + websocket push events |
 
 ## P0: Program Setup & Baselines
 
@@ -175,13 +176,13 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 ## P7: VTT Integration + Real-time Entity Push
 
 ### P7-T1: Define VTTEntity schema + conversion adapters + push events
-- [ ] Status
+- [x] Status
 - Log:
-  - Start:
-  - End:
-  - Commit:
-  - Tests/Commands:
-  - Notes:
+  - Start: 2025-12-20
+  - End: 2025-12-20
+  - Commit: pending
+  - Tests/Commands: not run
+  - Notes: VTT export endpoint + websocket events for entity push.
 
 ## P8: Quality Gates, Evaluation, and Scaling
 

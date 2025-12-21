@@ -5,6 +5,7 @@ import { WSMessageSchema, IncomingEventType } from '../types/events';
 import { handleSessionCreate, handleSessionJoin, handleSessionLeave, handleSessionUpdateSettings } from '../handlers/session.handler';
 import { handlePageChange, handleScrollSync } from '../handlers/navigation.handler';
 import { handlePushPage, handlePushReference } from '../handlers/push.handler';
+import { handleVttEntityPush, handleVttRegister, handleVttStateUpdate } from '../handlers/vtt.handler';
 import { handleAnnotationCreate, handleAnnotationUpdate, handleAnnotationDelete } from '../handlers/annotation.handler';
 import { sessionService } from '../services/session.service';
 import { loggingService } from '../services/logging.service';
@@ -122,6 +123,18 @@ export class DocumentWebSocketServer {
 
         case IncomingEventType.PUSH_REFERENCE:
           await handlePushReference(ws, validatedMessage.data, this.broadcast.bind(this));
+          break;
+
+        case IncomingEventType.VTT_REGISTER:
+          await handleVttRegister(ws, validatedMessage.data);
+          break;
+
+        case IncomingEventType.VTT_ENTITY_PUSH:
+          await handleVttEntityPush(ws, validatedMessage.data, this.broadcast.bind(this));
+          break;
+
+        case IncomingEventType.VTT_STATE_UPDATE:
+          await handleVttStateUpdate(ws, validatedMessage.data, this.broadcast.bind(this));
           break;
 
         case IncomingEventType.ANNOTATION_CREATE:

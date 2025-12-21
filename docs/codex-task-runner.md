@@ -22,6 +22,7 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 | 2025-12-20 | P1 | P1-T1 | Completed | Staged ingestion pipeline + checkpoints + asset queue split |
 | 2025-12-20 | P1 | P1-T2 | Completed | OCR pool + configurable detection thresholds |
 | 2025-12-20 | P1 | P1-T3 | Completed | Batched structured data writes with cleanup |
+| 2025-12-20 | P2 | P2-T1 | Completed | Layout-aware text reconstruction + per-page confidence |
 
 ## P0: Program Setup & Baselines
 
@@ -75,13 +76,13 @@ This checklist tracks the full upgrade plan in `codex_backlog.json`. Each task e
 ## P2: Layout-aware Extraction & Parser Modularization
 
 ### P2-T1: Layout-aware PDF text reconstruction
-- [ ] Status
+- [x] Status
 - Log:
-  - Start:
-  - End:
-  - Commit:
-  - Tests/Commands:
-  - Notes:
+  - Start: 2025-12-20
+  - End: 2025-12-20
+  - Commit: pending
+  - Tests/Commands: not run (tests added in doc-processor)
+  - Notes: Layout service reconstructs columns, stores per-page confidence.
 
 ### P2-T2: Modular parsers + confidence scoring + fallback storage
 - [ ] Status

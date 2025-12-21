@@ -3,6 +3,7 @@ import { ProcessDocumentJob, enqueueStage, enqueueAssetStage } from '../services
 import { prisma } from '../services/database.service';
 import { s3Service } from '../services/s3.service';
 import { pdfService } from '../services/pdf.service';
+import { layoutService } from '../services/layout.service';
 import { thumbnailService } from '../services/thumbnail.service';
 import { pageImageService } from '../services/page-image.service';
 import { elasticService } from '../services/elastic.service';
@@ -43,6 +44,11 @@ type ProcessingMetadata = {
   pageImages?: {
     count?: number;
     totalBytes?: number;
+  };
+  layout?: {
+    pages: Array<{ pageNumber: number; columns: number; confidence: number }>;
+    confidence?: number;
+    failureReason?: string;
   };
   format?: string;
   textLength?: number;
@@ -248,12 +254,31 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
         let needsOCR = false;
         let ocrPageKeys: string[] = [];
 
+        let layoutInfo: { pages: { pageNumber: number; columns: number; confidence: number }[]; confidence?: number; failureReason?: string } | undefined;
+
         if (document.format === 'pdf') {
           console.log(`[Worker] Extracting text from PDF`);
           await loggingService.logInfo(jobId, 'Extracting text from PDF');
-          const extracted = await pdfService.extractText(fileBuffer);
-          text = extracted.text;
-          pageCount = extracted.pageCount;
+          let layoutPages: { pageNumber: number; columns: number; confidence: number }[] = [];
+          let layoutFailure: string | undefined;
+          try {
+            const extracted = await layoutService.extractTextWithLayout(fileBuffer);
+            text = extracted.text;
+            pageCount = extracted.pageCount;
+            layoutPages = extracted.pages.map((page) => ({
+              pageNumber: page.pageNumber,
+              columns: page.columns,
+              confidence: page.confidence,
+            }));
+            await loggingService.logInfo(jobId, `Layout extraction completed: ${pageCount} pages`);
+          } catch (layoutError: any) {
+            layoutFailure = layoutError.message;
+            await loggingService.logWarn(jobId, `Layout extraction failed, falling back: ${layoutError.message}`);
+            const extracted = await pdfService.extractText(fileBuffer);
+            text = extracted.text;
+            pageCount = extracted.pageCount;
+          }
+
           await loggingService.logInfo(jobId, `Extracted text: ${text.length} characters, ${pageCount} pages`);
 
           needsOCR = ocrService.isImageBasedPage(text);
@@ -261,6 +286,14 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
             console.log(`[Worker] PDF appears to be image-based, OCR will be performed`);
             await loggingService.logWarn(jobId, 'PDF appears to be image-based, OCR will be performed');
           }
+          const averageConfidence = layoutPages.length
+            ? Math.round((layoutPages.reduce((sum, page) => sum + page.confidence, 0) / layoutPages.length) * 100) / 100
+            : undefined;
+          layoutInfo = {
+            pages: layoutPages,
+            confidence: averageConfidence,
+            failureReason: layoutFailure,
+          };
         } else if (document.format === 'markdown') {
           console.log(`[Worker] Extracting text from Markdown`);
           await loggingService.logInfo(jobId, 'Extracting text from Markdown');
@@ -319,6 +352,7 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
           textLength,
           textSample: textSample || undefined,
           textCharsPerPage,
+          ...(layoutInfo ? { layout: layoutInfo } : {}),
           checkpoints: {
             contentHash: document.contentHash || checkpoints.contentHash,
           },

@@ -1,0 +1,63 @@
+{
+  "name": "@nexuscodex/dm-ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\""
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "dexie": "^4.0.8",
+    "dexie-react-hooks": "^1.1.7",
+    "zustand": "^4.5.5",
+    "@tanstack/react-query": "^5.56.2",
+    "zod": "^3.23.8",
+    "react-hook-form": "^7.53.0",
+    "@hookform/resolvers": "^3.9.0",
+    "lexical": "^0.17.1",
+    "@lexical/react": "^0.17.1",
+    "@lexical/markdown": "^0.17.1",
+    "d3": "^7.9.0",
+    "fuse.js": "^7.0.0",
+    "date-fns": "^3.6.0",
+    "react-big-calendar": "^1.13.4",
+    "react-arborist": "^3.4.0",
+    "react-zoom-pan-pinch": "^3.6.1",
+    "file-saver": "^2.0.5",
+    "nanoid": "^5.0.7",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.2",
+    "lucide-react": "^0.445.0",
+    "class-variance-authority": "^0.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@types/d3": "^7.4.3",
+    "@types/file-saver": "^2.0.7",
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^7.0.0",
+    "typescript": "^5.6.2",
+    "tailwindcss": "^3.4.11",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.12",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.6",
+    "tailwindcss-animate": "^1.0.7"
+  }
+}

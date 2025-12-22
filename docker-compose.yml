@@ -85,6 +85,20 @@ services:
       - ./services/admin-ui:/app
       - /app/node_modules
 
+  dm-ui:
+    build: ./services/dm-ui
+    ports:
+      - "3003:80"
+    depends_on:
+      - doc-api
+    environment:
+      - VITE_DOC_API_URL=http://localhost:3005
+      - VITE_WEBSOCKET_URL=ws://localhost:3002
+    volumes:
+      - ./services/dm-ui:/app
+      - /app/node_modules
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     environment:

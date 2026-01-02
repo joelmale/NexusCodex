@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 interface PageImage {
@@ -14,6 +14,27 @@ interface PageImagesResponse {
   pages: PageImage[]
 }
 
+interface DocumentAnnotation {
+  id: string
+  documentId: string
+  pageNumber: number
+  position: {
+    x: number
+    y: number
+    width?: number
+    height?: number
+  }
+  type: 'highlight' | 'note' | 'drawing'
+  content: string
+  color: string
+}
+
+interface DocumentReference {
+  id: string
+  pageNumber?: number | null
+  title: string
+}
+
 export default function Reader() {
   const { id } = useParams()
   const [data, setData] = useState<PageImagesResponse | null>(null)
@@ -23,22 +44,56 @@ export default function Reader() {
   const [zoom, setZoom] = useState(1)
   const [activeTool, setActiveTool] = useState<'pan' | 'highlight' | 'note' | 'bookmark'>('pan')
   const [loupeEnabled, setLoupeEnabled] = useState(true)
-  const [bookmarks, setBookmarks] = useState<number[]>([])
+  const [bookmarks, setBookmarks] = useState<DocumentReference[]>([])
+  const [annotations, setAnnotations] = useState<DocumentAnnotation[]>([])
+  const [toolNotice, setToolNotice] = useState<string | null>(null)
   const [loupeState, setLoupeState] = useState<{
     visible: boolean
     x: number
     y: number
-    width: number
-    height: number
+    imageX: number
+    imageY: number
+    imageWidth: number
+    imageHeight: number
     src: string
   }>({
     visible: false,
     x: 0,
     y: 0,
-    width: 0,
-    height: 0,
+    imageX: 0,
+    imageY: 0,
+    imageWidth: 0,
+    imageHeight: 0,
     src: '',
   })
+  const [drawState, setDrawState] = useState<{
+    pageNumber: number
+    startX: number
+    startY: number
+    currentX: number
+    currentY: number
+    imageWidth: number
+    imageHeight: number
+    type: 'highlight' | 'note'
+  } | null>(null)
+  const [imageMetrics, setImageMetrics] = useState<Record<string, { width: number; height: number }>>({})
+  const leftImageRef = useRef<HTMLImageElement | null>(null)
+  const rightImageRef = useRef<HTMLImageElement | null>(null)
+
+  const resolveUserId = () => {
+    if (typeof window === 'undefined') return 'admin'
+    return (
+      window.localStorage.getItem('adminUserId') ||
+      window.localStorage.getItem('userId') ||
+      window.localStorage.getItem('uid') ||
+      'admin'
+    )
+  }
+
+  const resolveCampaignId = () => {
+    if (typeof window === 'undefined') return undefined
+    return window.localStorage.getItem('campaignId') || undefined
+  }
 
   useEffect(() => {
     if (!id) return
@@ -72,6 +127,60 @@ export default function Reader() {
     }
   }, [id])
 
+  useEffect(() => {
+    if (!id) return
+    let isMounted = true
+
+    const loadAnnotations = async () => {
+      try {
+        const params = new URLSearchParams()
+        params.set('userId', resolveUserId())
+        const campaignId = resolveCampaignId()
+        if (campaignId) params.set('campaignId', campaignId)
+        const response = await fetch(`/api/documents/${id}/annotations?${params}`)
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.error || 'Failed to load annotations')
+        }
+        if (isMounted) {
+          setAnnotations(payload)
+        }
+      } catch (err) {
+        if (isMounted) {
+          setToolNotice(err instanceof Error ? err.message : 'Failed to load annotations')
+        }
+      }
+    }
+
+    const loadBookmarks = async () => {
+      try {
+        const params = new URLSearchParams()
+        params.set('documentId', id)
+        params.set('userId', resolveUserId())
+        const campaignId = resolveCampaignId()
+        if (campaignId) params.set('campaignId', campaignId)
+        const response = await fetch(`/api/references?${params}`)
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.error || 'Failed to load bookmarks')
+        }
+        if (isMounted) {
+          setBookmarks(payload.references || [])
+        }
+      } catch (err) {
+        if (isMounted) {
+          setToolNotice(err instanceof Error ? err.message : 'Failed to load bookmarks')
+        }
+      }
+    }
+
+    loadAnnotations()
+    loadBookmarks()
+    return () => {
+      isMounted = false
+    }
+  }, [id])
+
   const pages = data?.pages || []
   const maxLeftIndex = useMemo(() => {
     if (pages.length === 0) return 0
@@ -95,13 +204,48 @@ export default function Reader() {
     setLeftIndex(alignedIndex)
   }
 
-  const toggleBookmark = (pageNumber: number) => {
-    setBookmarks((prev) => {
-      if (prev.includes(pageNumber)) {
-        return prev.filter((num) => num !== pageNumber)
+  const toggleBookmark = async (pageNumber: number) => {
+    if (!id) return
+    const existing = bookmarks.find((bookmark) => bookmark.pageNumber === pageNumber)
+    if (existing) {
+      try {
+        const response = await fetch(`/api/references/${existing.id}`, {
+          method: 'DELETE',
+        })
+        if (!response.ok) {
+          const payload = await response.json()
+          throw new Error(payload.error || 'Failed to delete bookmark')
+        }
+        setBookmarks((prev) => prev.filter((bookmark) => bookmark.id !== existing.id))
+      } catch (err) {
+        setToolNotice(err instanceof Error ? err.message : 'Failed to delete bookmark')
       }
-      return [...prev, pageNumber].sort((a, b) => a - b)
-    })
+      return
+    }
+
+    try {
+      const response = await fetch('/api/references', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: id,
+          userId: resolveUserId(),
+          campaignId: resolveCampaignId(),
+          pageNumber,
+          title: `Page ${pageNumber}`,
+          notes: '',
+          tags: [],
+          isShared: false,
+        }),
+      })
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to create bookmark')
+      }
+      setBookmarks((prev) => [...prev, payload])
+    } catch (err) {
+      setToolNotice(err instanceof Error ? err.message : 'Failed to create bookmark')
+    }
   }
 
   const handlePageClick = (pageNumber?: number) => {
@@ -123,17 +267,51 @@ export default function Reader() {
     setZoom(1)
   }
 
-  const handleLoupeMove = (event: React.MouseEvent, src: string) => {
-    if (!loupeEnabled) return
-    const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
+  const updateImageMetrics = (
+    pageNumber: number,
+    imageRef: React.RefObject<HTMLImageElement>
+  ) => {
+    const image = imageRef.current
+    if (!image) return
+    const rect = image.getBoundingClientRect()
+    setImageMetrics((prev) => ({
+      ...prev,
+      [pageNumber]: { width: rect.width, height: rect.height },
+    }))
+  }
+
+  const handleLoupeMove = (
+    event: React.MouseEvent,
+    src: string,
+    imageRef: React.RefObject<HTMLImageElement>
+  ) => {
+    if (!loupeEnabled || drawState) return
+    const container = event.currentTarget as HTMLDivElement
+    const containerRect = container.getBoundingClientRect()
+    const image = imageRef.current
+    if (!image) return
+    const imageRect = image.getBoundingClientRect()
+    const imageX = event.clientX - imageRect.left
+    const imageY = event.clientY - imageRect.top
+    if (
+      imageX < 0 ||
+      imageY < 0 ||
+      imageX > imageRect.width ||
+      imageY > imageRect.height
+    ) {
+      setLoupeState((prev) => ({ ...prev, visible: false }))
+      return
+    }
+    const x = event.clientX - containerRect.left
+    const y = event.clientY - containerRect.top
     setLoupeState({
       visible: true,
       x,
       y,
-      width: rect.width,
-      height: rect.height,
+      imageX,
+      imageY,
+      imageWidth: imageRect.width,
+      imageHeight: imageRect.height,
       src,
     })
   }
@@ -143,6 +321,142 @@ export default function Reader() {
   }
 
   const loupeScale = 2.4
+  const loupeSize = 180
+  const loupeRadius = loupeSize / 2
+
+  const handleDrawStart = (
+    event: React.MouseEvent,
+    pageNumber: number,
+    imageRef: React.RefObject<HTMLImageElement>
+  ) => {
+    if (activeTool !== 'highlight' && activeTool !== 'note') return
+    const image = imageRef.current
+    if (!image) return
+    const rect = image.getBoundingClientRect()
+    const imageX = event.clientX - rect.left
+    const imageY = event.clientY - rect.top
+    if (imageX < 0 || imageY < 0 || imageX > rect.width || imageY > rect.height) return
+    setDrawState({
+      pageNumber,
+      startX: imageX,
+      startY: imageY,
+      currentX: imageX,
+      currentY: imageY,
+      imageWidth: rect.width,
+      imageHeight: rect.height,
+      type: activeTool,
+    })
+  }
+
+  const handleDrawMove = (
+    event: React.MouseEvent,
+    pageNumber: number,
+    imageRef: React.RefObject<HTMLImageElement>
+  ) => {
+    if (!drawState || drawState.pageNumber !== pageNumber) return
+    const image = imageRef.current
+    if (!image) return
+    const rect = image.getBoundingClientRect()
+    const imageX = Math.min(Math.max(event.clientX - rect.left, 0), rect.width)
+    const imageY = Math.min(Math.max(event.clientY - rect.top, 0), rect.height)
+    setDrawState((prev) =>
+      prev
+        ? {
+            ...prev,
+            currentX: imageX,
+            currentY: imageY,
+            imageWidth: rect.width,
+            imageHeight: rect.height,
+          }
+        : prev
+    )
+  }
+
+  const handleDrawEnd = async () => {
+    if (!drawState || !id) return
+    const {
+      pageNumber,
+      startX,
+      startY,
+      currentX,
+      currentY,
+      imageWidth,
+      imageHeight,
+      type,
+    } = drawState
+    setDrawState(null)
+
+    const width = Math.abs(currentX - startX)
+    const height = Math.abs(currentY - startY)
+    if (width < 6 || height < 6) return
+
+    let content = ''
+    if (type === 'note') {
+      const response = window.prompt('Note text (optional):', '')
+      if (response === null) return
+      content = response
+    }
+
+    const minX = Math.min(startX, currentX)
+    const minY = Math.min(startY, currentY)
+    const maxY = Math.max(startY, currentY)
+    const lineHeight = Math.max(18, Math.min(28, imageHeight * 0.03))
+    const totalHeight = maxY - minY
+    const lineCount = Math.max(1, Math.round(totalHeight / lineHeight))
+    const highlightHeight = Math.max(totalHeight / lineCount, lineHeight)
+
+    const segments = Array.from({ length: lineCount }, (_, index) => {
+      const segmentY = minY + index * highlightHeight
+      const segmentHeight = Math.min(highlightHeight, imageHeight - segmentY)
+      return {
+        x: minX / imageWidth,
+        y: segmentY / imageHeight,
+        width: width / imageWidth,
+        height: segmentHeight / imageHeight,
+      }
+    })
+
+    try {
+      const payloads = segments.map((position) => ({
+        documentId: id,
+        userId: resolveUserId(),
+        campaignId: resolveCampaignId(),
+        pageNumber,
+        position,
+        type,
+        content,
+        color: type === 'note' ? '#7DD3FC' : '#FDE68A',
+        isShared: false,
+      }))
+      const responses = await Promise.all(
+        payloads.map((payload) =>
+          fetch(`/api/documents/${id}/annotations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }).then(async (response) => {
+            const body = await response.json()
+            if (!response.ok) {
+              throw new Error(body.error || 'Failed to create annotation')
+            }
+            return body
+          })
+        )
+      )
+      setAnnotations((prev) => [...responses, ...prev])
+    } catch (err) {
+      setToolNotice(err instanceof Error ? err.message : 'Failed to create annotation')
+    }
+  }
+
+  useEffect(() => {
+    if (leftPage?.pageNumber) {
+      updateImageMetrics(leftPage.pageNumber, leftImageRef)
+    }
+    if (rightPage?.pageNumber) {
+      updateImageMetrics(rightPage.pageNumber, rightImageRef)
+    }
+  }, [zoom, leftPage?.pageNumber, rightPage?.pageNumber])
 
   if (loading) {
     return <div className="p-6">Loading reader...</div>
@@ -221,6 +535,9 @@ export default function Reader() {
             </button>
           </div>
         </div>
+        {toolNotice && (
+          <div className="mb-4 text-sm text-rose-600">{toolNotice}</div>
+        )}
 
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -253,28 +570,85 @@ export default function Reader() {
             {leftPage ? (
               <div
                 className={`relative rounded-lg overflow-auto max-h-[75vh] ${activeTool === 'pan' ? 'cursor-grab' : 'cursor-crosshair'}`}
-                onMouseMove={(event) => handleLoupeMove(event, leftPage.url)}
+                onMouseMove={(event) => {
+                  handleLoupeMove(event, leftPage.url, leftImageRef)
+                  handleDrawMove(event, leftPage.pageNumber ?? leftIndex + 1, leftImageRef)
+                }}
                 onMouseLeave={handleLoupeLeave}
+                onMouseDown={(event) => handleDrawStart(event, leftPage.pageNumber ?? leftIndex + 1, leftImageRef)}
+                onMouseUp={handleDrawEnd}
                 onClick={() => handlePageClick(leftPage.pageNumber ?? leftIndex + 1)}
               >
                 <img
                   src={leftPage.url}
                   alt={`Page ${leftPage.pageNumber ?? leftIndex + 1}`}
+                  ref={leftImageRef}
                   className="w-full h-auto rounded-lg origin-top-left"
                   style={{ transform: `scale(${zoom})` }}
+                  onLoad={() =>
+                    updateImageMetrics(leftPage.pageNumber ?? leftIndex + 1, leftImageRef)
+                  }
                 />
+                {imageMetrics[leftPage.pageNumber ?? leftIndex + 1] &&
+                  annotations
+                    .filter((annotation) => annotation.pageNumber === (leftPage.pageNumber ?? leftIndex + 1))
+                    .map((annotation) => {
+                      const metrics = imageMetrics[leftPage.pageNumber ?? leftIndex + 1]
+                      const width = (annotation.position.width ?? 0) * metrics.width
+                      const height = (annotation.position.height ?? 0) * metrics.height
+                      return (
+                        <div
+                          key={annotation.id}
+                          className="absolute rounded-sm"
+                          title={annotation.type === 'note' ? annotation.content : 'Highlight'}
+                          style={{
+                            left: annotation.position.x * metrics.width,
+                            top: annotation.position.y * metrics.height,
+                            width,
+                            height,
+                            backgroundColor:
+                              annotation.type === 'note'
+                                ? 'rgba(125, 211, 252, 0.35)'
+                                : 'rgba(253, 230, 138, 0.45)',
+                            border:
+                              annotation.type === 'note'
+                                ? '1px solid rgba(56, 189, 248, 0.8)'
+                                : '1px solid rgba(251, 191, 36, 0.7)',
+                          }}
+                        >
+                          {annotation.type === 'note' && annotation.content && (
+                            <span className="absolute -top-2 left-0 text-[10px] bg-sky-500 text-white px-1 rounded">
+                              Note
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                {drawState && drawState.pageNumber === (leftPage.pageNumber ?? leftIndex + 1) && (
+                  <div
+                    className="absolute rounded-sm border border-amber-500 bg-amber-200/40"
+                    style={{
+                      left: Math.min(drawState.startX, drawState.currentX),
+                      top: Math.min(drawState.startY, drawState.currentY),
+                      width: Math.abs(drawState.currentX - drawState.startX),
+                      height: Math.abs(drawState.currentY - drawState.startY),
+                    }}
+                  />
+                )}
                 {loupeEnabled && loupeState.visible && loupeState.src === leftPage.url && (
                   <div
                     className="pointer-events-none absolute border-2 border-slate-900 rounded-full shadow-lg"
                     style={{
-                      width: 180,
-                      height: 180,
-                      left: loupeState.x - 90,
-                      top: loupeState.y - 90,
+                      width: loupeSize,
+                      height: loupeSize,
+                      left: loupeState.x - loupeRadius,
+                      top: loupeState.y - loupeRadius,
                       backgroundImage: `url(${loupeState.src})`,
                       backgroundRepeat: 'no-repeat',
-                      backgroundSize: `${zoom * loupeScale * 100}%`,
-                      backgroundPosition: `${(loupeState.x / loupeState.width) * 100}% ${(loupeState.y / loupeState.height) * 100}%`,
+                      backgroundSize: `${loupeState.imageWidth * loupeScale}px ${loupeState.imageHeight * loupeScale}px`,
+                      backgroundPosition: `${-loupeState.imageX * loupeScale + loupeRadius}px ${
+                        -loupeState.imageY * loupeScale + loupeRadius
+                      }px`,
                     }}
                   />
                 )}
@@ -287,28 +661,85 @@ export default function Reader() {
             {rightPage ? (
               <div
                 className={`relative rounded-lg overflow-auto max-h-[75vh] ${activeTool === 'pan' ? 'cursor-grab' : 'cursor-crosshair'}`}
-                onMouseMove={(event) => handleLoupeMove(event, rightPage.url)}
+                onMouseMove={(event) => {
+                  handleLoupeMove(event, rightPage.url, rightImageRef)
+                  handleDrawMove(event, rightPage.pageNumber ?? leftIndex + 2, rightImageRef)
+                }}
                 onMouseLeave={handleLoupeLeave}
+                onMouseDown={(event) => handleDrawStart(event, rightPage.pageNumber ?? leftIndex + 2, rightImageRef)}
+                onMouseUp={handleDrawEnd}
                 onClick={() => handlePageClick(rightPage.pageNumber ?? leftIndex + 2)}
               >
                 <img
                   src={rightPage.url}
                   alt={`Page ${rightPage.pageNumber ?? leftIndex + 2}`}
+                  ref={rightImageRef}
                   className="w-full h-auto rounded-lg origin-top-left"
                   style={{ transform: `scale(${zoom})` }}
+                  onLoad={() =>
+                    updateImageMetrics(rightPage.pageNumber ?? leftIndex + 2, rightImageRef)
+                  }
                 />
+                {imageMetrics[rightPage.pageNumber ?? leftIndex + 2] &&
+                  annotations
+                    .filter((annotation) => annotation.pageNumber === (rightPage.pageNumber ?? leftIndex + 2))
+                    .map((annotation) => {
+                      const metrics = imageMetrics[rightPage.pageNumber ?? leftIndex + 2]
+                      const width = (annotation.position.width ?? 0) * metrics.width
+                      const height = (annotation.position.height ?? 0) * metrics.height
+                      return (
+                        <div
+                          key={annotation.id}
+                          className="absolute rounded-sm"
+                          title={annotation.type === 'note' ? annotation.content : 'Highlight'}
+                          style={{
+                            left: annotation.position.x * metrics.width,
+                            top: annotation.position.y * metrics.height,
+                            width,
+                            height,
+                            backgroundColor:
+                              annotation.type === 'note'
+                                ? 'rgba(125, 211, 252, 0.35)'
+                                : 'rgba(253, 230, 138, 0.45)',
+                            border:
+                              annotation.type === 'note'
+                                ? '1px solid rgba(56, 189, 248, 0.8)'
+                                : '1px solid rgba(251, 191, 36, 0.7)',
+                          }}
+                        >
+                          {annotation.type === 'note' && annotation.content && (
+                            <span className="absolute -top-2 left-0 text-[10px] bg-sky-500 text-white px-1 rounded">
+                              Note
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                {drawState && drawState.pageNumber === (rightPage.pageNumber ?? leftIndex + 2) && (
+                  <div
+                    className="absolute rounded-sm border border-amber-500 bg-amber-200/40"
+                    style={{
+                      left: Math.min(drawState.startX, drawState.currentX),
+                      top: Math.min(drawState.startY, drawState.currentY),
+                      width: Math.abs(drawState.currentX - drawState.startX),
+                      height: Math.abs(drawState.currentY - drawState.startY),
+                    }}
+                  />
+                )}
                 {loupeEnabled && loupeState.visible && loupeState.src === rightPage.url && (
                   <div
                     className="pointer-events-none absolute border-2 border-slate-900 rounded-full shadow-lg"
                     style={{
-                      width: 180,
-                      height: 180,
-                      left: loupeState.x - 90,
-                      top: loupeState.y - 90,
+                      width: loupeSize,
+                      height: loupeSize,
+                      left: loupeState.x - loupeRadius,
+                      top: loupeState.y - loupeRadius,
                       backgroundImage: `url(${loupeState.src})`,
                       backgroundRepeat: 'no-repeat',
-                      backgroundSize: `${zoom * loupeScale * 100}%`,
-                      backgroundPosition: `${(loupeState.x / loupeState.width) * 100}% ${(loupeState.y / loupeState.height) * 100}%`,
+                      backgroundSize: `${loupeState.imageWidth * loupeScale}px ${loupeState.imageHeight * loupeScale}px`,
+                      backgroundPosition: `${-loupeState.imageX * loupeScale + loupeRadius}px ${
+                        -loupeState.imageY * loupeScale + loupeRadius
+                      }px`,
                     }}
                   />
                 )}
@@ -329,7 +760,7 @@ export default function Reader() {
               {pages.map((page, index) => {
                 const pageNumber = page.pageNumber ?? index + 1
                 const isActive = pageNumber === (leftPage?.pageNumber ?? leftIndex + 1) || pageNumber === (rightPage?.pageNumber ?? leftIndex + 2)
-                const isBookmarked = bookmarks.includes(pageNumber)
+                const isBookmarked = bookmarks.some((bookmark) => bookmark.pageNumber === pageNumber)
                 return (
                   <button
                     key={page.key}

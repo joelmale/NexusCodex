@@ -64,9 +64,6 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     volumes:
       - minio-data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     networks:
       - nexuscodex
     deploy:
@@ -89,8 +86,6 @@ services:
       S3_REGION: us-east-1
       S3_FORCE_PATH_STYLE: "true"
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-    ports:
-      - "3005:3000"
     networks:
       - nexuscodex
     depends_on:
@@ -146,8 +141,6 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-doclib}
       REDIS_URL: redis://redis:6379
       SESSION_TTL: 3600
-    ports:
-      - "3002:3002"
     networks:
       - nexuscodex
     depends_on:
@@ -164,8 +157,6 @@ services:
     environment:
       VITE_DOC_API_URL: ${DOC_API_URL:-http://localhost:3005}
       VITE_WEBSOCKET_URL: ${WEBSOCKET_URL:-ws://localhost:3002}
-    ports:
-      - "3001:80"
     networks:
       - nexuscodex
     depends_on:
@@ -181,8 +172,6 @@ services:
     environment:
       VITE_DOC_API_URL: ${DOC_API_URL:-http://localhost:3005}
       VITE_WEBSOCKET_URL: ${WEBSOCKET_URL:-ws://localhost:3002}
-    ports:
-      - "3003:80"
     networks:
       - nexuscodex
     depends_on:

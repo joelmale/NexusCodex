@@ -130,7 +130,7 @@ model DocumentChunk {
   source     DocumentTextSource
   chunkHash  String
   content    String
-  embedding  Float[]?
+  embedding  Float[] @default([])
   embeddingModel String?
   createdAt  DateTime            @default(now())
 

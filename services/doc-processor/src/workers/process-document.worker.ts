@@ -611,7 +611,7 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
 
           const chunksWithEmbeddings = chunks.map((chunk, index) => ({
             ...chunk,
-            embedding: embeddings[index] || null,
+            embedding: embeddings[index] ?? [],
             embeddingModel: embeddingsProvider === 'none' ? null : embeddingsProvider,
           }));
 

@@ -122,6 +122,7 @@ model Document {
   structuredData  StructuredData[]
   textEntries     DocumentText[]
   chunks          DocumentChunk[]
+  entityMentions  EntityMention[]
   uploader        User?               @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
 
   @@index([uploadedBy])
@@ -277,6 +278,8 @@ model Entity {
   structuredData StructuredData[]
   outgoingLinks  EntityLink[]     @relation("EntityLinkSource")
   incomingLinks  EntityLink[]     @relation("EntityLinkTarget")
+  sourceMentions EntityMention[]  @relation("EntityMentionSource")
+  resolvedMentions EntityMention[] @relation("EntityMentionResolved")
 
   @@unique([type, normalizedName])
   @@index([type])

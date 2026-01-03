@@ -4,8 +4,6 @@ import {
   getDocument,
   getStructuredData,
   searchStructuredData,
-  Document,
-  StructuredData
 } from '@/services/codex-api';
 import { db, CodexLink } from '@/db/schema';
 import { generateId } from '@/lib/utils';

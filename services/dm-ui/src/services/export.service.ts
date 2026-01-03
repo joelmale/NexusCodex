@@ -1,5 +1,18 @@
 import { db, Campaign } from '@/db/schema';
 import { saveAs } from 'file-saver';
+import type {
+  World,
+  Session,
+  PlotThread,
+  Clue,
+  NPC,
+  Encounter,
+  Note,
+  Journal,
+  JournalEntry,
+  LoreEntry,
+  CodexLink
+} from '@/db/schema';
 
 export interface CampaignExport {
   version: string;
@@ -7,17 +20,17 @@ export interface CampaignExport {
   exportedBy: string;
 
   campaign: Campaign;
-  worlds: any[];
-  sessions: any[];
-  plotThreads: any[];
-  clues: any[];
-  npcs: any[];
-  encounters: any[];
-  notes: any[];
-  journals: any[];
-  journalEntries: any[];
-  loreEntries: any[];
-  codexLinks: any[];
+  worlds: World[];
+  sessions: Session[];
+  plotThreads: PlotThread[];
+  clues: Clue[];
+  npcs: NPC[];
+  encounters: Encounter[];
+  notes: Note[];
+  journals: Journal[];
+  journalEntries: JournalEntry[];
+  loreEntries: LoreEntry[];
+  codexLinks: CodexLink[];
 
   metadata: {
     totalNotes: number;
@@ -200,48 +213,48 @@ export class ExportService {
     idMap.set(data.campaign.id, newCampaignId);
 
     // Generate new IDs for all entities
-    const generateNewIds = (items: any[], type: string) => {
+    const generateNewIds = <T extends { id: string; campaignId?: string }>(items: T[]) => {
       return items.map(item => {
         const newId = crypto.randomUUID();
         idMap.set(item.id, newId);
-        return { ...item, id: newId, campaignId: newCampaignId };
+        return { ...item, id: newId, campaignId: newCampaignId } as T;
       });
     };
 
-    const worlds = generateNewIds(data.worlds, 'world');
-    const sessions = generateNewIds(data.sessions, 'session');
-    const plotThreads = generateNewIds(data.plotThreads, 'plotThread');
-    const clues = generateNewIds(data.clues, 'clue');
-    const npcs = generateNewIds(data.npcs, 'npc');
-    const encounters = generateNewIds(data.encounters, 'encounter');
-    const notes = generateNewIds(data.notes, 'note');
-    const journals = generateNewIds(data.journals, 'journal');
-    const journalEntries = generateNewIds(data.journalEntries, 'journalEntry');
-    const loreEntries = generateNewIds(data.loreEntries, 'loreEntry');
-    const codexLinks = generateNewIds(data.codexLinks, 'codexLink');
+    const worlds = generateNewIds(data.worlds);
+    const sessions = generateNewIds(data.sessions);
+    const plotThreads = generateNewIds(data.plotThreads);
+    const clues = generateNewIds(data.clues);
+    const npcs = generateNewIds(data.npcs);
+    const encounters = generateNewIds(data.encounters);
+    const notes = generateNewIds(data.notes);
+    const journals = generateNewIds(data.journals);
+    const journalEntries = generateNewIds(data.journalEntries);
+    const loreEntries = generateNewIds(data.loreEntries);
+    const codexLinks = generateNewIds(data.codexLinks);
 
     // Update foreign key references
-    const updateReferences = (item: any) => {
+    const updateReferences = (item: Record<string, unknown>) => {
       const updated = { ...item };
 
       // Update common references
-      if (updated.plotThreadId && idMap.has(updated.plotThreadId)) {
-        updated.plotThreadId = idMap.get(updated.plotThreadId);
+      if (typeof updated.plotThreadId === 'string' && idMap.has(updated.plotThreadId)) {
+        updated.plotThreadId = idMap.get(updated.plotThreadId)!;
       }
-      if (updated.sessionId && idMap.has(updated.sessionId)) {
-        updated.sessionId = idMap.get(updated.sessionId);
+      if (typeof updated.sessionId === 'string' && idMap.has(updated.sessionId)) {
+        updated.sessionId = idMap.get(updated.sessionId)!;
       }
-      if (updated.parentThreadId && idMap.has(updated.parentThreadId)) {
-        updated.parentThreadId = idMap.get(updated.parentThreadId);
+      if (typeof updated.parentThreadId === 'string' && idMap.has(updated.parentThreadId)) {
+        updated.parentThreadId = idMap.get(updated.parentThreadId)!;
       }
-      if (updated.parentWorldId && idMap.has(updated.parentWorldId)) {
-        updated.parentWorldId = idMap.get(updated.parentWorldId);
+      if (typeof updated.parentWorldId === 'string' && idMap.has(updated.parentWorldId)) {
+        updated.parentWorldId = idMap.get(updated.parentWorldId)!;
       }
-      if (updated.journalId && idMap.has(updated.journalId)) {
-        updated.journalId = idMap.get(updated.journalId);
+      if (typeof updated.journalId === 'string' && idMap.has(updated.journalId)) {
+        updated.journalId = idMap.get(updated.journalId)!;
       }
-      if (updated.entityId && idMap.has(updated.entityId)) {
-        updated.entityId = idMap.get(updated.entityId);
+      if (typeof updated.entityId === 'string' && idMap.has(updated.entityId)) {
+        updated.entityId = idMap.get(updated.entityId)!;
       }
 
       return updated;
@@ -250,24 +263,24 @@ export class ExportService {
     return {
       ...data,
       campaign: { ...data.campaign, id: newCampaignId },
-      worlds: worlds.map(updateReferences),
-      sessions: sessions.map(updateReferences),
-      plotThreads: plotThreads.map(updateReferences),
-      clues: clues.map(updateReferences),
-      npcs: npcs.map(updateReferences),
-      encounters: encounters.map(updateReferences),
-      notes: notes.map(updateReferences),
-      journals: journals.map(updateReferences),
-      journalEntries: journalEntries.map(updateReferences),
-      loreEntries: loreEntries.map(updateReferences),
-      codexLinks: codexLinks.map(updateReferences)
+      worlds: worlds.map(item => updateReferences(item as any) as unknown as World),
+      sessions: sessions.map(item => updateReferences(item as any) as unknown as Session),
+      plotThreads: plotThreads.map(item => updateReferences(item as any) as unknown as PlotThread),
+      clues: clues.map(item => updateReferences(item as any) as unknown as Clue),
+      npcs: npcs.map(item => updateReferences(item as any) as unknown as NPC),
+      encounters: encounters.map(item => updateReferences(item as any) as unknown as Encounter),
+      notes: notes.map(item => updateReferences(item as any) as unknown as Note),
+      journals: journals.map(item => updateReferences(item as any) as unknown as Journal),
+      journalEntries: journalEntries.map(item => updateReferences(item as any) as unknown as JournalEntry),
+      loreEntries: loreEntries.map(item => updateReferences(item as any) as unknown as LoreEntry),
+      codexLinks: codexLinks.map(item => updateReferences(item as any) as unknown as CodexLink)
     };
   }
 
   /**
    * Validate export data
    */
-  validateExport(data: any): { valid: boolean; errors: string[] } {
+  validateExport(data: CampaignExport): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
     if (!data.version) {

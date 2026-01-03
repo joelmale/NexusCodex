@@ -20,8 +20,10 @@ import {
 } from 'lucide-react';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
+import { enUS } from 'date-fns/locale';
+
 const locales = {
-  'en-US': require('date-fns/locale/en-US'),
+  'en-US': enUS,
 };
 
 const localizer = dateFnsLocalizer({
@@ -44,7 +46,6 @@ export function SessionsPage() {
     deleteSession,
     completeSession,
     cancelSession,
-    rescheduleSession,
   } = useSessions(activeCampaign?.id);
 
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
@@ -53,20 +54,6 @@ export function SessionsPage() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [nextSessionNum, setNextSessionNum] = useState(1);
-
-  if (!activeCampaign) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <CalendarIcon className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h2 className="mt-4 text-xl font-semibold">No Active Campaign</h2>
-          <p className="mt-2 text-muted-foreground">
-            Select or create a campaign to start planning sessions.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   // Convert sessions to calendar events
   const calendarEvents: CalendarEvent[] = useMemo(() => {
@@ -89,6 +76,20 @@ export function SessionsPage() {
         };
       });
   }, [sessions]);
+
+  if (!activeCampaign) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <CalendarIcon className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h2 className="mt-4 text-xl font-semibold">No Active Campaign</h2>
+          <p className="mt-2 text-muted-foreground">
+            Select or create a campaign to start planning sessions.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const handleCreateClick = async () => {
     const nextNum = await getNextSessionNumber(activeCampaign!.id);
@@ -338,6 +339,7 @@ interface SessionCardProps {
 function SessionCard({ session, onEdit, onDelete, onComplete, onCancel }: SessionCardProps) {
   const statusColors = {
     planned: 'bg-blue-500',
+    'in-progress': 'bg-yellow-500',
     completed: 'bg-green-500',
     cancelled: 'bg-gray-500',
   };

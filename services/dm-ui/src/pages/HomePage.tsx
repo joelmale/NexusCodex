@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, FolderOpen, Archive } from 'lucide-react';
 import { db, Campaign } from '@/db/schema';

@@ -30,7 +30,6 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
   const [importData, setImportData] = useState<CampaignExport | null>(null);
   const [importAsNew, setImportAsNew] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
-  const [importedCampaignId, setImportedCampaignId] = useState('');
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -69,7 +68,6 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
         overwrite: !importAsNew
       });
 
-      setImportedCampaignId(campaignId);
       setStep('success');
 
       // Set as active campaign and navigate after 2 seconds
@@ -97,7 +95,6 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
     setImportData(null);
     setImportAsNew(true);
     setErrorMessage('');
-    setImportedCampaignId('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }

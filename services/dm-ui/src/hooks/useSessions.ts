@@ -1,24 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/schema';
-import { Session } from '@/types/session';
+import { Session, SessionFormData } from '@/types/session';
 import { generateId } from '@/lib/utils';
-
-export interface SessionFormData {
-  title: string;
-  sessionNumber: number;
-  plannedDate?: number;
-  actualDate?: number;
-  duration?: number;
-  status: 'planned' | 'completed' | 'cancelled';
-  worldId?: string;
-  summary?: string;
-  notes?: string;
-  participants?: string[];
-  experience_awarded?: number;
-  treasure_awarded?: string;
-  quests_advanced?: string[];
-  npcs_encountered?: string[];
-}
 
 export function useSessions(campaignId?: string) {
   // Get all sessions for a campaign

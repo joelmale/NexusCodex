@@ -1,4 +1,4 @@
-import { $getRoot, $getSelection, EditorState, LexicalEditor } from 'lexical';
+import { EditorState } from 'lexical';
 import { useEffect } from 'react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { PlainTextPlugin } from '@lexical/react/LexicalPlainTextPlugin';
@@ -54,7 +54,7 @@ export function RichTextEditor({
     onError,
   };
 
-  const handleChange = (editorState: EditorState, editor: LexicalEditor) => {
+  const handleChange = (editorState: EditorState) => {
     const json = JSON.stringify(editorState.toJSON());
     onChange(json);
   };

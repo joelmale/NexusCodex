@@ -65,7 +65,9 @@ export function useWorlds(campaignId?: string) {
       factions: data.factions || [],
       points_of_interest: data.points_of_interest || [],
       map_url: data.map_url,
+      mapUrl: data.map_url, // Also set mapUrl for compatibility
       notes: data.notes,
+      properties: {}, // Initialize empty properties object
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };

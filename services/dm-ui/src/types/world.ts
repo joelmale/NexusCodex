@@ -28,6 +28,9 @@ export const worldSchema = z.object({
 
 export type WorldFormData = z.infer<typeof worldSchema>;
 
+// Re-export World type from db schema for convenience
+export type { World } from '@/db/schema';
+
 export const WORLD_TYPES = [
   { value: 'continent', label: 'Continent', icon: '🌍' },
   { value: 'region', label: 'Region', icon: '🗺️' },

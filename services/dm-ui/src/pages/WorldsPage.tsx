@@ -6,7 +6,7 @@ import { WorldFormData } from '@/types/world';
 import { World } from '@/db/schema';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tree, NodeApi } from 'react-arborist';
+import { Tree, NodeRendererProps } from 'react-arborist';
 import {
   Globe,
   Plus,
@@ -33,7 +33,6 @@ export function WorldsPage() {
     createWorld,
     updateWorld,
     deleteWorld,
-    moveWorld,
     duplicateWorld,
     buildWorldTree,
   } = useWorlds(activeCampaign?.id);
@@ -71,8 +70,8 @@ export function WorldsPage() {
     };
   }
 
-  const handleCreate = async (data: WorldFormData) => {
-    await createWorld(activeCampaign!.id, data);
+  const handleCreate = async (data: WorldFormData, campaignId: string) => {
+    await createWorld(campaignId, data);
     setShowCreateDialog(false);
     setParentWorldId(undefined);
   };
@@ -111,7 +110,7 @@ export function WorldsPage() {
   };
 
   // Tree node renderer
-  function Node({ node, style, dragHandle }: any) {
+  function Node({ node, style, dragHandle }: NodeRendererProps<TreeNode>) {
     const world: World = node.data.data;
     const worldType = WORLD_TYPES.find((t) => t.value === world.type);
 

@@ -17,6 +17,12 @@ export default defineConfig({
       '@/services': path.resolve(__dirname, './src/services')
     }
   },
+  optimizeDeps: {
+    include: ['lexical', '@lexical/react', '@lexical/markdown'],
+    esbuildOptions: {
+      resolveExtensions: ['.js', '.ts', '.jsx', '.tsx', '.json']
+    }
+  },
   server: {
     host: '0.0.0.0',
     port: 3003,
@@ -30,13 +36,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true
+    },
     rollupOptions: {
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'db-vendor': ['dexie', 'dexie-react-hooks'],
           'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
-          'editor-vendor': ['lexical', '@lexical/react', '@lexical/markdown'],
           'viz-vendor': ['d3'],
           'calendar-vendor': ['react-big-calendar', 'date-fns']
         }

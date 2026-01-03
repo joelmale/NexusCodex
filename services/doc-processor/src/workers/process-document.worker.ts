@@ -164,7 +164,7 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
       throw new Error(`Document not found: ${documentId}`);
     }
 
-    const { metadata, processing, checkpoints } = getProcessingState(document);
+    const { processing, checkpoints } = getProcessingState(document);
     const contentHash = document.contentHash || checkpoints.contentHash || null;
 
     if (stage !== 'ingest' && contentHash && isStageComplete(checkpoints, stage, contentHash)) {
@@ -499,7 +499,7 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
         const spellRows = await Promise.all(
           extracted.spells.map(async (spell) => ({
             documentId: document.id,
-            type: 'spell',
+            type: 'spell' as const,
             name: spell.entity.name,
             entityId: await entityResolverService.resolveEntity({
               name: spell.entity.name,
@@ -513,14 +513,14 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
               failureReason: spell.failureReason,
               rawSnippet: spell.rawSnippet,
             } as any,
-            searchText: `${spell.entity.name} ${spell.entity.level} ${spell.entity.school} ${spell.entity.description || ''}`.toLowerCase(),
+            searchText: `${spell.entity.name} ${spell.entity.school || ''} ${spell.entity.level || ''}`.toLowerCase(),
           }))
         );
 
         const monsterRows = await Promise.all(
           extracted.monsters.map(async (monster) => ({
             documentId: document.id,
-            type: 'monster',
+            type: 'monster' as const,
             name: monster.entity.name,
             entityId: await entityResolverService.resolveEntity({
               name: monster.entity.name,
@@ -534,14 +534,14 @@ export async function processDocumentWorker(job: Job<ProcessDocumentJob>): Promi
               failureReason: monster.failureReason,
               rawSnippet: monster.rawSnippet,
             } as any,
-            searchText: `${monster.entity.name} ${monster.entity.type || ''} ${monster.entity.size || ''}`.toLowerCase(),
+            searchText: `${monster.entity.name} ${monster.entity.size || ''} ${monster.entity.type || ''}`.toLowerCase(),
           }))
         );
 
         const itemRows = await Promise.all(
           extracted.items.map(async (item) => ({
             documentId: document.id,
-            type: 'item',
+            type: 'item' as const,
             name: item.entity.name,
             entityId: await entityResolverService.resolveEntity({
               name: item.entity.name,

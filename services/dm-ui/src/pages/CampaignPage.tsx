@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, Campaign } from '@/db/schema';
+import { db } from '@/db/schema';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { CampaignForm } from '@/components/campaign/CampaignForm';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import {
   Swords,
   Map
 } from 'lucide-react';
-import { formatDate, formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils';
 import { GAME_SYSTEMS } from '@/types/campaign';
 
 export function CampaignPage() {

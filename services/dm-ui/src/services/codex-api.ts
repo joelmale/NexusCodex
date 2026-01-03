@@ -15,7 +15,7 @@ export interface Document {
   uploadedBy: string;
   uploadedAt: string;
   status: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SearchResult {
@@ -28,7 +28,7 @@ export interface StructuredData {
   documentId: string;
   type: string;
   name: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   searchText?: string;
 }
 

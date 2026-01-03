@@ -22,9 +22,17 @@ export interface World {
   campaignId: string;
   name: string;
   description?: string;
-  type: 'continent' | 'region' | 'city' | 'dungeon' | 'plane' | 'location';
+  type: 'continent' | 'region' | 'city' | 'dungeon' | 'plane' | 'location' | 'kingdom' | 'town' | 'village' | 'other';
   parentWorldId?: string;
   mapUrl?: string; // Base64 or blob URL
+  map_url?: string; // Alternative field name for compatibility
+  geography?: string; // Geographic description
+  climate?: string; // Climate description
+  population?: number; // Population count
+  government?: string; // Government type and details
+  factions?: string[]; // Faction names or IDs
+  points_of_interest?: string[]; // POI names or descriptions
+  notes?: string; // Additional notes
   properties: Record<string, any>;
   createdAt: number;
   updatedAt: number;
@@ -37,10 +45,18 @@ export interface Session {
   title: string;
   plannedDate?: number;
   actualDate?: number;
+  duration?: number; // Duration in minutes
   status: 'planned' | 'in-progress' | 'completed' | 'cancelled';
+  worldId?: string; // Location of the session
   summary?: string; // Markdown
+  notes?: string; // DM notes (Markdown)
   privateNotes?: string; // DM-only notes (Markdown)
   publicNotes?: string; // Player-visible notes (Markdown)
+  participants?: string[]; // Character names or player names
+  experience_awarded?: number; // Total XP awarded
+  treasure_awarded?: string; // Description of treasure
+  quests_advanced?: string[]; // Quest IDs or names
+  npcs_encountered?: string[]; // NPC IDs or names
   createdAt: number;
   updatedAt: number;
 }
@@ -88,6 +104,7 @@ export interface NPC {
   publicInfo?: string; // Markdown, player-visible
   status: 'alive' | 'dead' | 'missing' | 'unknown';
   location?: string;
+  homeWorldId?: string; // Reference to World for home location
   faction?: string;
   relationships: Record<string, any>; // { npcId/characterName: relationship }
   statBlockDocumentId?: string; // Link to codex document
@@ -105,6 +122,7 @@ export interface Encounter {
   difficulty?: 'easy' | 'medium' | 'hard' | 'deadly';
   description: string; // Markdown
   location?: string;
+  worldId?: string; // Reference to World for location
   triggers: Record<string, any>;
   rewards: Record<string, any>;
   notes?: string; // Markdown
@@ -220,11 +238,11 @@ export class CampaignDatabase extends Dexie {
     this.version(1).stores({
       campaigns: 'id, name, status, createdAt, updatedAt',
       worlds: 'id, campaignId, parentWorldId, name, type',
-      sessions: 'id, campaignId, sessionNumber, status, plannedDate',
+      sessions: 'id, campaignId, sessionNumber, status, plannedDate, worldId',
       plotThreads: 'id, campaignId, parentThreadId, status, priority',
       clues: 'id, plotThreadId, campaignId, discovered',
-      npcs: 'id, campaignId, name, status, faction',
-      encounters: 'id, campaignId, type, difficulty',
+      npcs: 'id, campaignId, name, status, faction, homeWorldId',
+      encounters: 'id, campaignId, type, difficulty, worldId',
       notes: 'id, campaignId, sessionId, type, visibility, createdAt',
       journals: 'id, campaignId, type, createdAt',
       journalEntries: 'id, journalId, campaignId, sessionId, entryDate',
@@ -233,13 +251,13 @@ export class CampaignDatabase extends Dexie {
     });
 
     // Add hooks for automatic timestamps
-    this.campaigns.hook('creating', (primKey, obj) => {
+    this.campaigns.hook('creating', (_primKey, obj) => {
       obj.createdAt = Date.now();
       obj.updatedAt = Date.now();
       obj.exportVersion = '1.0.0';
     });
 
-    this.campaigns.hook('updating', (modifications) => {
+    this.campaigns.hook('updating', (modifications: any) => {
       modifications.updatedAt = Date.now();
     });
 
@@ -259,17 +277,13 @@ export class CampaignDatabase extends Dexie {
     ];
 
     tables.forEach((table) => {
-      table.hook('creating', (primKey, obj: any) => {
+      table.hook('creating', (_primKey, obj: any) => {
         obj.createdAt = Date.now();
-        if ('updatedAt' in obj) {
-          obj.updatedAt = Date.now();
-        }
+        obj.updatedAt = Date.now();
       });
 
       table.hook('updating', (modifications: any) => {
-        if ('updatedAt' in modifications) {
-          modifications.updatedAt = Date.now();
-        }
+        modifications.updatedAt = Date.now();
       });
     });
   }

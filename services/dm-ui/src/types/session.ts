@@ -6,7 +6,7 @@ export const sessionSchema = z.object({
   plannedDate: z.number().optional(),
   actualDate: z.number().optional(),
   duration: z.number().int().min(0).optional(),
-  status: z.enum(['planned', 'completed', 'cancelled']),
+  status: z.enum(['planned', 'in-progress', 'completed', 'cancelled']),
   worldId: z.string().optional(),
   summary: z.string().optional(),
   notes: z.string().optional(),
@@ -19,8 +19,12 @@ export const sessionSchema = z.object({
 
 export type SessionFormData = z.infer<typeof sessionSchema>;
 
+// Re-export Session type from db schema for convenience
+export type { Session } from '@/db/schema';
+
 export const SESSION_STATUS = [
   { value: 'planned', label: 'Planned', color: 'bg-blue-500' },
+  { value: 'in-progress', label: 'In Progress', color: 'bg-yellow-500' },
   { value: 'completed', label: 'Completed', color: 'bg-green-500' },
   { value: 'cancelled', label: 'Cancelled', color: 'bg-gray-500' },
 ] as const;
@@ -32,7 +36,7 @@ export interface CalendarEvent {
   end: Date;
   resource?: {
     sessionId: string;
-    status: 'planned' | 'completed' | 'cancelled';
+    status: 'planned' | 'in-progress' | 'completed' | 'cancelled';
     sessionNumber: number;
   };
 }

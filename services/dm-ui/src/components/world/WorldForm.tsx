@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
+import SelectRoot, {
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -18,7 +17,7 @@ interface WorldFormProps {
   world?: World;
   parentWorldId?: string;
   campaignId: string;
-  onSubmit: (data: WorldFormData) => Promise<void>;
+  onSubmit: (data: WorldFormData, campaignId: string) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -64,8 +63,12 @@ export function WorldForm({ world, parentWorldId, campaignId, onSubmit, onCancel
 
   const selectedType = watch('type');
 
+  const handleFormSubmit = (data: WorldFormData) => {
+    return onSubmit(data, campaignId);
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       {/* Basic Info */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Basic Information</h3>
@@ -85,21 +88,21 @@ export function WorldForm({ world, parentWorldId, campaignId, onSubmit, onCancel
 
         <div>
           <Label htmlFor="type">Type *</Label>
-          <Select
+          <SelectRoot
             value={selectedType}
-            onValueChange={(value) => setValue('type', value as any)}
+            onValueChange={(value) => setValue('type', value as World['type'])}
           >
             <SelectTrigger id="type">
               <SelectValue placeholder="Select world type" />
+              <SelectContent>
+                {WORLD_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.icon} {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </SelectTrigger>
-            <SelectContent>
-              {WORLD_TYPES.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.icon} {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          </SelectRoot>
           {errors.type && (
             <p className="mt-1 text-sm text-destructive">{errors.type.message}</p>
           )}
@@ -132,22 +135,22 @@ export function WorldForm({ world, parentWorldId, campaignId, onSubmit, onCancel
 
         <div>
           <Label htmlFor="climate">Climate</Label>
-          <Select
+          <SelectRoot
             value={watch('climate') || ''}
             onValueChange={(value) => setValue('climate', value)}
           >
             <SelectTrigger id="climate">
               <SelectValue placeholder="Select climate" />
+              <SelectContent>
+                <SelectItem value="">None</SelectItem>
+                {CLIMATE_OPTIONS.map((climate) => (
+                  <SelectItem key={climate} value={climate}>
+                    {climate}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">None</SelectItem>
-              {CLIMATE_OPTIONS.map((climate) => (
-                <SelectItem key={climate} value={climate}>
-                  {climate}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          </SelectRoot>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { createWorker } from 'tesseract.js';
 import { env } from '../config/env';
-import { runWorkerPool } from './ocr-pool';
+import { runWorkerPool, WorkerPoolResult } from './ocr-pool';
 
 class OcrService {
   /**
@@ -44,9 +44,9 @@ class OcrService {
   /**
    * Extract text from multiple pages using a worker pool
    */
-  async extractTextFromImagesWithPool(imageBuffers: Buffer[], workerCount: number = env.OCR_WORKER_POOL_SIZE) {
+  async extractTextFromImagesWithPool(imageBuffers: Buffer[], workerCount: number = env.OCR_WORKER_POOL_SIZE): Promise<WorkerPoolResult<string>> {
     const poolSize = Math.max(1, Math.min(workerCount, imageBuffers.length || 1));
-    const result = await runWorkerPool(
+    const result = await runWorkerPool<Buffer, string, any>(
       imageBuffers,
       poolSize,
       () => createWorker('eng'),

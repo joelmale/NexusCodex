@@ -7,14 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
+import SelectRoot, {
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatDate } from '@/lib/utils';
+// Removed unused import: formatDate
 
 interface SessionFormProps {
   session?: Session;
@@ -118,41 +117,41 @@ export function SessionForm({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label htmlFor="status">Status *</Label>
-            <Select
+            <SelectRoot
               value={selectedStatus}
-              onValueChange={(value) => setValue('status', value as any)}
+              onValueChange={(value) => setValue('status', value as Session['status'])}
             >
               <SelectTrigger id="status">
                 <SelectValue placeholder="Select status" />
+                <SelectContent>
+                  {SESSION_STATUS.map((status) => (
+                    <SelectItem key={status.value} value={status.value}>
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </SelectTrigger>
-              <SelectContent>
-                {SESSION_STATUS.map((status) => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            </SelectRoot>
           </div>
 
           <div>
             <Label htmlFor="worldId">Location (Optional)</Label>
-            <Select
+            <SelectRoot
               value={watch('worldId') || ''}
               onValueChange={(value) => setValue('worldId', value || undefined)}
             >
               <SelectTrigger id="worldId">
                 <SelectValue placeholder="Select location" />
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {worlds.map((world) => (
+                    <SelectItem key={world.id} value={world.id}>
+                      {world.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {worlds.map((world) => (
-                  <SelectItem key={world.id} value={world.id}>
-                    {world.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            </SelectRoot>
           </div>
         </div>
       </div>

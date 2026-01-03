@@ -173,7 +173,7 @@ services:
       VITE_DOC_API_URL: ${DOC_API_URL:-http://localhost:3005}
       VITE_WEBSOCKET_URL: ${WEBSOCKET_URL:-ws://localhost:3002}
     networks:
-      - nexuscodex
+      - homelab-net
     depends_on:
       - doc-api
     deploy:

@@ -269,7 +269,7 @@ export default function Reader() {
 
   const updateImageMetrics = (
     pageNumber: number,
-    imageRef: React.RefObject<HTMLImageElement>
+    imageRef: React.RefObject<HTMLImageElement | null>
   ) => {
     const image = imageRef.current
     if (!image) return
@@ -283,7 +283,7 @@ export default function Reader() {
   const handleLoupeMove = (
     event: React.MouseEvent,
     src: string,
-    imageRef: React.RefObject<HTMLImageElement>
+    imageRef: React.RefObject<HTMLImageElement | null>
   ) => {
     if (!loupeEnabled || drawState) return
     const container = event.currentTarget as HTMLDivElement
@@ -327,7 +327,7 @@ export default function Reader() {
   const handleDrawStart = (
     event: React.MouseEvent,
     pageNumber: number,
-    imageRef: React.RefObject<HTMLImageElement>
+    imageRef: React.RefObject<HTMLImageElement | null>
   ) => {
     if (activeTool !== 'highlight' && activeTool !== 'note') return
     const image = imageRef.current
@@ -351,7 +351,7 @@ export default function Reader() {
   const handleDrawMove = (
     event: React.MouseEvent,
     pageNumber: number,
-    imageRef: React.RefObject<HTMLImageElement>
+    imageRef: React.RefObject<HTMLImageElement | null>
   ) => {
     if (!drawState || drawState.pageNumber !== pageNumber) return
     const image = imageRef.current

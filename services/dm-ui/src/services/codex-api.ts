@@ -14,7 +14,7 @@ const runtimeConfig =
 const API_URL =
   runtimeConfig?.DOC_API_URL ||
   import.meta.env.VITE_DOC_API_URL ||
-  'http://localhost:3005';
+  '';
 
 export interface Document {
   id: string;

@@ -9,6 +9,7 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const kibanaUrl = import.meta.env.VITE_KIBANA_URL as string | undefined
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -36,7 +37,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/elasticsearch', label: 'ElasticSearch' },
     { path: '/health', label: 'Health' },
     { path: '/logs', label: 'Logs' },
-    { path: 'http://localhost:5601', label: 'Kibana', external: true },
+    ...(kibanaUrl ? [{ path: kibanaUrl, label: 'Kibana', external: true }] : []),
   ]
 
   return (

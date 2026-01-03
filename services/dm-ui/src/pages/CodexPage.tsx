@@ -159,7 +159,7 @@ export function CodexPage() {
 
         {error && (
           <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-            Failed to search codex. Make sure doc-api is running on {import.meta.env.VITE_DOC_API_URL || 'http://localhost:3005'}
+            Failed to search codex. Check the DM UI DOC_API_URL configuration.
           </div>
         )}
 

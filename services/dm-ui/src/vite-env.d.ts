@@ -8,3 +8,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  __NEXUSCODEX_CONFIG__?: {
+    DOC_API_URL?: string;
+    WEBSOCKET_URL?: string;
+  };
+}

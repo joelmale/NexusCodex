@@ -3,7 +3,18 @@
  * Read-only access for browsing codex documents
  */
 
-const API_URL = import.meta.env.VITE_DOC_API_URL || 'http://localhost:3005';
+type RuntimeConfig = {
+  DOC_API_URL?: string;
+  WEBSOCKET_URL?: string;
+};
+
+const runtimeConfig =
+  typeof window !== 'undefined' ? (window as Window & { __NEXUSCODEX_CONFIG__?: RuntimeConfig }).__NEXUSCODEX_CONFIG__ : undefined;
+
+const API_URL =
+  runtimeConfig?.DOC_API_URL ||
+  import.meta.env.VITE_DOC_API_URL ||
+  'http://localhost:3005';
 
 export interface Document {
   id: string;
